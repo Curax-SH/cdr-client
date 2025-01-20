@@ -22,7 +22,7 @@
             <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
                 <fileNamePattern>${LOGGING_FILE_NAME:-./cdr-client.log}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
                 <maxFileSize>${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE:-100MB}</maxFileSize>
-                <maxHistory>${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY:-2}</maxHistory>
+                <maxHistory>${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY:-30}</maxHistory>
             </rollingPolicy>
 
             <encoder>

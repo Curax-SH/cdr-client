@@ -25,7 +25,7 @@ client:
   endpoint:
     scheme: https
     port: 443
-    #       host: dev-cdr-functions.azurewebsites.net
+    host: cdr.health.swisscom.ch
     base-path: api/documents
   customer:
   #  MUST BE SET IN ENVIRONMENT
