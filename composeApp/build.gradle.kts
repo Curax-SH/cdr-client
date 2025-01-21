@@ -93,11 +93,10 @@ compose.desktop {
         mainClass = "com.swisscom.health.des.cdr.client.CdrClientApplicationKt"
         javaHome = System.getenv("JDK17")
         jvmArgs += listOf(
-            "-Dspring.config.additional-location=./application-customer.yaml,./application-customer.properties",
-            "-Dspring.profiles.active=customer",
-            "-Dspring.config.on-not-found=ignore",
-            "-DLOGGING_FILE_NAME=./logs/cdr-client.log")
-        //    from(kotlin.targets["desktop"])
+    //        "-Dspring.config.additional-location=./application-customer.yaml,./application-customer.properties",
+            "-Dspring.profiles.active=customer")//,
+    //        "-Dspring.config.on-not-found=ignore",
+    //        "-DLOGGING_FILE_NAME=./logs/cdr-client.log")
 
         //https://blog.jetbrains.com/kotlin/2022/10/compose-multiplatform-1-2-is-out/#proguard
         // https://conveyor.hydraulic.dev/13.0/configs/jvm/#proguard-obfuscation
@@ -124,6 +123,7 @@ compose.desktop {
             }
             windows {
                 dirChooser = true
+                iconFile = project.file("resources/swisscom-logo-lifeform-180x180.ico")
             }
         }
 
