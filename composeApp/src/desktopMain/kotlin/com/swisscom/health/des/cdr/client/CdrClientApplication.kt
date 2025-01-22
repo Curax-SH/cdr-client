@@ -15,7 +15,12 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationListener
 import org.springframework.context.event.ContextClosedEvent
 import org.springframework.scheduling.annotation.EnableScheduling
-import java.awt.*
+import java.awt.AWTException
+import java.awt.MenuItem
+import java.awt.PopupMenu
+import java.awt.SystemTray
+import java.awt.Toolkit
+import java.awt.TrayIcon
 import java.io.File
 import java.net.URI
 import kotlin.system.exitProcess
@@ -24,7 +29,9 @@ private val logger = KotlinLogging.logger {}
 
 fun main(args: Array<String>) {
     if (checkSpringProperties()) {
-        System.setProperty("java.awt.headless", "false") // for system tray only
+        if (isUiAvailable()) {
+            System.setProperty("java.awt.headless", "false") // for system tray only
+        }
         startSpringBootApp(args)
     } else if (isUiAvailable()) {
         startUI()
