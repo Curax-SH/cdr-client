@@ -37,7 +37,7 @@ internal class PullFileHandling(
      */
     suspend fun pullSyncConnector(connector: Connector) {
         tracer.withSpan("Pull Sync Connector ${connector.connectorId}") {
-            logger.info { "Sync connector '${connector.connectorId}' (${connector.mode}) - pulling" }
+            logger.info { "Sync connector '${connector.connectorId.id}' (${connector.mode}) - pulling" }
             var counter = 0
             runCatching {
                 do {
@@ -46,14 +46,16 @@ internal class PullFileHandling(
                         is DownloadDocumentResult.Success -> counter++  // carry on; there might be more files in the download queue
                         is DownloadDocumentResult.NoDocumentPending -> break // we are done for this time round
                         is DownloadDocumentResult.Error -> throw IllegalStateException(
-                            "Error while downloading file for connector '${connector.connectorId}'",
+                            "Error while downloading file for connector '${connector.connectorId.id}'",
                             result.t
                         )
                     }
                 } while (true)
             }.fold(
-                onSuccess = { logger.info { "Sync connector done - '$counter' file(s) pulled" } },
-                onFailure = { logger.info { "Synced '$counter' file(s) before exception happened" } }
+                onSuccess = { logger.info { "Sync connector '${connector.connectorId.id}' (${connector.mode}) done - '$counter' file(s) pulled" } },
+                onFailure = {
+                    logger.info { "Synced '$counter' file(s) before exception happened for connector '${connector.connectorId.id}' (${connector.mode})" }
+                }
             )
         }
     }
@@ -137,7 +139,9 @@ internal class PullFileHandling(
             )
         }.fold(
             onSuccess = {
-                logger.debug { "Moved file '$file' to '${targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml")}'" }
+                val target = targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml")
+                logger.info { "Downloaded file to: '$target'" }
+                logger.debug { "Moved file '$file' to '$target'" }
             },
             onFailure = { t: Throwable ->
                 logger.error { "Unable to move file '$file' to '${connector.targetFolder}': ${t.message}" }
