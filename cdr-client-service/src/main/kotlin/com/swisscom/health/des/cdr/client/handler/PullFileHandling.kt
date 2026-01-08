@@ -122,6 +122,7 @@ internal class PullFileHandling(
                     ?: connector.targetFolder.also { logger.debug { "No specific target directory defined for files of type '${documentType}'" } }
             }
         val targetTmpFile = targetDir.resolve(file.name)
+        val targetFinal: Path by lazy(LazyThreadSafetyMode.NONE) { targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml") }
 
         runCatching {
             Files.move(
@@ -134,14 +135,13 @@ internal class PullFileHandling(
             // be aware that this is not an atomic operation on Windows systems (but it is on Linux-based systems)
             Files.move(
                 targetTmpFile,
-                targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml"),
+                targetFinal,
                 StandardCopyOption.REPLACE_EXISTING,
             )
         }.fold(
             onSuccess = {
-                val target = targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml")
-                logger.info { "Downloaded file to: '$target'" }
-                logger.debug { "Moved file '$file' to '$target'" }
+                logger.info { "Downloaded file to: '$targetFinal'" }
+                logger.debug { "Moved file '$file' to '$targetFinal'" }
             },
             onFailure = { t: Throwable ->
                 logger.error { "Unable to move file '$file' to '${connector.targetFolder}': ${t.message}" }
