@@ -37,7 +37,7 @@ internal class PullFileHandling(
      */
     suspend fun pullSyncConnector(connector: Connector) {
         tracer.withSpan("Pull Sync Connector ${connector.connectorId}") {
-            logger.info { "Sync connector '${connector.connectorId}' (${connector.mode}) - pulling" }
+            logger.info { "Sync connector '${connector.connectorId.id}' (${connector.mode}) - pulling" }
             var counter = 0
             runCatching {
                 do {
@@ -46,14 +46,16 @@ internal class PullFileHandling(
                         is DownloadDocumentResult.Success -> counter++  // carry on; there might be more files in the download queue
                         is DownloadDocumentResult.NoDocumentPending -> break // we are done for this time round
                         is DownloadDocumentResult.Error -> throw IllegalStateException(
-                            "Error while downloading file for connector '${connector.connectorId}'",
+                            "Error while downloading file for connector '${connector.connectorId.id}'",
                             result.t
                         )
                     }
                 } while (true)
             }.fold(
-                onSuccess = { logger.info { "Sync connector done - '$counter' file(s) pulled" } },
-                onFailure = { logger.info { "Synced '$counter' file(s) before exception happened" } }
+                onSuccess = { logger.info { "Sync connector '${connector.connectorId.id}' (${connector.mode}) done - '$counter' file(s) pulled" } },
+                onFailure = {
+                    logger.info { "Synced '$counter' file(s) before exception happened for connector '${connector.connectorId.id}' (${connector.mode})" }
+                }
             )
         }
     }
@@ -120,6 +122,7 @@ internal class PullFileHandling(
                     ?: connector.targetFolder.also { logger.debug { "No specific target directory defined for files of type '${documentType}'" } }
             }
         val targetTmpFile = targetDir.resolve(file.name)
+        val targetFinal: Path by lazy(LazyThreadSafetyMode.NONE) { targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml") }
 
         runCatching {
             Files.move(
@@ -132,12 +135,13 @@ internal class PullFileHandling(
             // be aware that this is not an atomic operation on Windows systems (but it is on Linux-based systems)
             Files.move(
                 targetTmpFile,
-                targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml"),
+                targetFinal,
                 StandardCopyOption.REPLACE_EXISTING,
             )
         }.fold(
             onSuccess = {
-                logger.debug { "Moved file '$file' to '${targetTmpFile.resolveSibling("${targetTmpFile.nameWithoutExtension}.xml")}'" }
+                logger.info { "Downloaded file to: '$targetFinal'" }
+                logger.debug { "Moved file '$file' to '$targetFinal'" }
             },
             onFailure = { t: Throwable ->
                 logger.error { "Unable to move file '$file' to '${connector.targetFolder}': ${t.message}" }

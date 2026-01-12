@@ -54,7 +54,7 @@ internal class DocumentDownloadScheduler(
                         runCatching {
                             pullFileHandling.pullSyncConnector(connector)
                         }.onFailure {
-                            logger.error { "Error syncing connector '${connector.connectorId}'. Reason: $it" }
+                            logger.error { "Error syncing connector '${connector.connectorId.id}'. Reason: $it" }
                         }
                     }
                 }
