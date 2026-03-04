@@ -3,6 +3,7 @@ package com.swisscom.health.des.cdr.client.config
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
+import com.swisscom.health.des.cdr.client.common.Constants.ERROR_DIR_NAME
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig.Mode
 import com.swisscom.health.des.cdr.client.xml.DocumentType
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -270,20 +271,19 @@ internal data class Connector(
     private fun getDateNow(): String = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
 
     /**
-     * Returns the error directory resolved against the source directory with a subdirectory for the current date. The directories will be
-     * created if they do not exist.
+     * Returns the error directory resolved against the source directory. The directory will be created if it does not exist.
      *
      * @see sourceErrorFolder
      * @see sourceFolder
      */
     @JsonIgnore
     fun getEffectiveSourceErrorFolder(path: Path): Path =
-        (sourceErrorFolder ?: Path.of(EMPTY_STRING)).let { errorDir ->
+        (sourceErrorFolder ?: Path.of(ERROR_DIR_NAME)).let { errorDir ->
             if (path.isDirectory()) {
                 path
             } else {
                 path.parent
-            }.resolve(errorDir.resolve(getDateNow()))
+            }.resolve(errorDir)
                 .also { createDirectoryIfMissing(it) }
         }
 
@@ -294,8 +294,8 @@ internal data class Connector(
      */
     val effectiveConnectorSourceErrorFolder: Path
         @JsonIgnore
-        get() = (sourceErrorFolder ?: Path.of(EMPTY_STRING)).let { errorDir ->
-            sourceFolder.resolve(errorDir.resolve(getDateNow()))
+        get() = (sourceErrorFolder ?: Path.of(ERROR_DIR_NAME)).let { errorDir ->
+            sourceFolder.resolve(errorDir)
                 .also { createDirectoryIfMissing(it) }
         }
 

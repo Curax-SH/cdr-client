@@ -1,6 +1,7 @@
 package com.swisscom.health.des.cdr.client.handler
 
 import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
+import com.swisscom.health.des.cdr.client.common.Constants.ERROR_DIR_NAME
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.DIRECTORY_NOT_FOUND
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.DUPLICATE_MODE
@@ -15,6 +16,7 @@ import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.NO_CO
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.TARGET_DIR_OVERLAPS_SOURCE_DIRS
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.VALUE_IS_BLANK
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.VALUE_IS_PLACEHOLDER
+import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.ERROR_AS_NON_ERROR_FOLDER_NAME_USED
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationResult
 import com.swisscom.health.des.cdr.client.common.DomainObjects
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ConfigurationItem.CONNECTOR
@@ -213,7 +215,8 @@ internal class ConfigValidationService(
         fun getAllBaseSourceFolders(): List<Path> = config.customer.map { connector ->
             Path.of(connector.sourceFolder)
                 .also {
-                    logger.debug { "connector [${connector.connectorId}-${connector.mode}] base source folder: [${connector.sourceFolder}]" }
+                    logger.debug { "connector [${connector.connectorId}-${connector.mode}] base source folder: [${connector.sourceFolder}]," +
+                            " base error folder: [${connector.sourceErrorFolder}]" }
                 }
         }
 
@@ -251,13 +254,23 @@ internal class ConfigValidationService(
                 }
             }
 
-        fun getSourceArchiveAndErrorFolders(): List<Path> = config.customer
+        fun getSourceErrorFolders(): List<Path> = config.customer
             .flatMap { connector ->
-                listOf(connector.sourceArchiveFolder, connector.sourceErrorFolder)
+                listOf(connector.sourceErrorFolder)
                     .also {
                         logger.debug {
-                            "connector [${connector.connectorId}-${connector.mode}] source archive folder: [${connector.sourceArchiveFolder}], " +
-                                    "source error folder: [${connector.sourceErrorFolder}]"
+                            "connector [${connector.connectorId}-${connector.mode}] source error folder: [${connector.sourceErrorFolder}]"
+                        }
+                    }
+            }
+            .map { Path.of(it ?: EMPTY_STRING) }
+
+        fun getSourceArchiveFolders(): List<Path> = config.customer
+            .flatMap { connector ->
+                listOf(connector.sourceArchiveFolder)
+                    .also {
+                        logger.debug {
+                            "connector [${connector.connectorId}-${connector.mode}] source archive folder: [${connector.sourceArchiveFolder}], "
                         }
                     }
             }
@@ -266,7 +279,8 @@ internal class ConfigValidationService(
         val localDirectory: List<Path> = listOf(Path.of(config.localFolder))
         val baseSourceFolders: List<Path> = getAllBaseSourceFolders()
         val allSourceTypeFolders: List<Path> = getAllSourceDocTypeFolders()
-        val archiveAndErrorFolders: List<Path> = getSourceArchiveAndErrorFolders()
+        val errorFolders: List<Path> = getSourceErrorFolders()
+        val archiveFolders: List<Path> = getSourceArchiveFolders()
         val baseTargetFolders: List<Path> = getAllBaseTargetFolders()
         val allTargetTypeFolders: List<Path> = getAllTargetDocTypeFolders()
 
@@ -287,7 +301,7 @@ internal class ConfigValidationService(
 
         // local dir must not overlap with target dirs
         val localDirTargetDirsOverlap: ValidationResult =
-            if ((baseTargetFolders + allTargetTypeFolders + archiveAndErrorFolders).containsAll(localDirectory)) {
+            if ((baseTargetFolders + allTargetTypeFolders + archiveFolders + errorFolders).containsAll(localDirectory)) {
                 ValidationResult.Failure(
                     localDirectory.map { path: Path ->
                         DTOs.ValidationDetail.PathDetail(
@@ -327,7 +341,7 @@ internal class ConfigValidationService(
         // target dirs must not overlap with source dirs
         val targetDirsOverlapWithSourceDirs: ValidationResult =
             (baseSourceFolders + allSourceTypeFolders)
-                .intersect(baseTargetFolders + allTargetTypeFolders + archiveAndErrorFolders)
+                .intersect((baseTargetFolders + allTargetTypeFolders + archiveFolders + errorFolders).toSet())
                 .let { overlappingDirs ->
                     if (overlappingDirs.isNotEmpty()) {
                         ValidationResult.Failure(
@@ -343,10 +357,29 @@ internal class ConfigValidationService(
                         ValidationResult.Success
                     }
                 }
-
         // target dirs may overlap with each other
 
-        return localDirSourceDirsOverlap + localDirTargetDirsOverlap + sourceDirsOverlap + targetDirsOverlapWithSourceDirs
+        // no non error dir should end in the default error folder name
+        val errorFolderNameOverlap: ValidationResult =
+            (localDirectory + baseSourceFolders + allSourceTypeFolders + baseTargetFolders + allTargetTypeFolders + archiveFolders)
+                .filter { it.fileName.toString() == ERROR_DIR_NAME }
+                .let { overlappingErrorFolderDirs ->
+                    if (overlappingErrorFolderDirs.isNotEmpty()) {
+                        ValidationResult.Failure(
+                            validationDetails =
+                                overlappingErrorFolderDirs.map { path: Path ->
+                                    DTOs.ValidationDetail.PathDetail(
+                                        path = path.toString(),
+                                        messageKey = ERROR_AS_NON_ERROR_FOLDER_NAME_USED,
+                                    )
+                                }
+                        )
+                    } else {
+                        ValidationResult.Success
+                    }
+                }
+
+        return localDirSourceDirsOverlap + localDirTargetDirsOverlap + sourceDirsOverlap + targetDirsOverlapWithSourceDirs + errorFolderNameOverlap
     }
 
     fun validateCredentialValues(credentials: DTOs.CdrClientConfig.IdpCredentials): ValidationResult {

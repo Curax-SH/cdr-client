@@ -303,6 +303,111 @@ internal class ConfigValidationServiceTest {
     }
 
     @Test
+    @Suppress("LongMethod")
+    fun `test validation error because non-error folders end with error name`() {
+        val sourceWithErrorName = sourceFolder1.resolve("error")
+        Files.createDirectories(sourceWithErrorName)
+        val targetWithErrorName = targetFolder1.resolve("error")
+        Files.createDirectories(targetWithErrorName)
+        val archiveWithErrorName = sourceFolder2.resolve("error")
+        Files.createDirectories(archiveWithErrorName)
+        val docTypeSourceWithErrorName = sourceFolder3.resolve("error")
+        Files.createDirectories(docTypeSourceWithErrorName)
+        val docTypeTargetWithErrorName = targetFolder3.resolve("error")
+        Files.createDirectories(docTypeTargetWithErrorName)
+
+        val connectors = listOf(
+            blueSkyConnectors().first().copy(
+                sourceFolder = sourceWithErrorName,
+                mode = CdrClientConfig.Mode.PRODUCTION
+            ),
+            blueSkyConnectors().first().copy(
+                targetFolder = targetWithErrorName,
+                sourceFolder = sourceFolder4,
+                mode = CdrClientConfig.Mode.TEST
+            ),
+            blueSkyConnectors()[3].copy(
+                sourceArchiveEnabled = true,
+                sourceArchiveFolder = archiveWithErrorName,
+                sourceFolder = sourceFolder2
+            ),
+            blueSkyConnectors()[4].copy(
+                sourceFolder = sourceFolder3,
+                docTypeFolders = mapOf(
+                    DocumentType.CONTAINER to Connector.DocTypeFolders(sourceFolder = docTypeSourceWithErrorName)
+                )
+            ),
+            Connector(
+                connectorId = ConnectorId("connectorId5"),
+                targetFolder = targetFolder4,
+                sourceFolder = multiPurposeTempDir,
+                contentType = FORUM_DATENAUSTAUSCH_MEDIA_TYPE.toString(),
+                mode = CdrClientConfig.Mode.TEST,
+                docTypeFolders = mapOf(
+                    DocumentType.INVOICE to Connector.DocTypeFolders(targetFolder = docTypeTargetWithErrorName)
+                )
+            )
+        )
+
+        val cdrClientConfig = createCdrClientConfig(connectors)
+        val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
+
+        assertInstanceOf<DTOs.ValidationResult.Failure>(validationResult)
+        assertEquals(5, validationResult.validationDetails.size)
+
+        val errorPaths = validationResult.validationDetails.map {
+            (it as DTOs.ValidationDetail.PathDetail).path
+        }
+        assertTrue(errorPaths.contains(sourceWithErrorName.toString()))
+        assertTrue(errorPaths.contains(targetWithErrorName.toString()))
+        assertTrue(errorPaths.contains(archiveWithErrorName.toString()))
+        assertTrue(errorPaths.contains(docTypeSourceWithErrorName.toString()))
+        assertTrue(errorPaths.contains(docTypeTargetWithErrorName.toString()))
+
+        validationResult.validationDetails.forEach { validationDetail ->
+            assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
+            assertEquals(DTOs.ValidationMessageKey.ERROR_AS_NON_ERROR_FOLDER_NAME_USED, validationDetail.messageKey)
+        }
+    }
+
+    @Test
+    fun `test validation success when error folders end with error name`() {
+        val errorDirWithErrorName = sourceFolder1.resolve("error")
+        Files.createDirectories(errorDirWithErrorName)
+
+        val connectors = listOf(
+            blueSkyConnectors().first().copy(
+                sourceFolder = sourceFolder1,
+                targetFolder = targetFolder1,
+                sourceErrorFolder = errorDirWithErrorName,
+                mode = CdrClientConfig.Mode.PRODUCTION
+            )
+        )
+
+        val cdrClientConfig = createCdrClientConfig(connectors)
+        val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
+
+        assertEquals(DTOs.ValidationResult.Success, validationResult)
+    }
+
+    @Test
+    fun `test validation error when local folder ends with error name`() {
+        val localWithErrorName = multiPurposeTempDir.resolve("error")
+        Files.createDirectories(localWithErrorName)
+
+        val cdrClientConfig = createCdrClientConfig(blueSkyConnectors(), localWithErrorName)
+        val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
+
+        assertInstanceOf<DTOs.ValidationResult.Failure>(validationResult)
+        assertEquals(1, validationResult.validationDetails.size)
+        validationResult.validationDetails.first().let { validationDetail ->
+            assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
+            assertEquals(localWithErrorName.toString(), validationDetail.path)
+            assertEquals(DTOs.ValidationMessageKey.ERROR_AS_NON_ERROR_FOLDER_NAME_USED, validationDetail.messageKey)
+        }
+    }
+
+    @Test
     fun `validateConnectorIdIsPresent should return Success when customer list is null`() {
         val result = configValidationService.validateConnectorIdIsPresent(null)
         assertEquals(DTOs.ValidationResult.Success, result)

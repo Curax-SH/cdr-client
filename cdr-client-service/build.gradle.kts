@@ -252,6 +252,10 @@ dockerCompose {
     dockerComposeWorkingDirectory.set(rootProject.file("docker-compose"))
     dockerComposeStopTimeout.set(Duration.ofSeconds(5))  // time before docker-compose sends SIGTERM to the running containers after the composeDown task has been started
     ignorePullFailure.set(true)
+    val rancherDocker = file("${System.getProperty("user.home")}/.rd/bin/docker")
+    if (rancherDocker.exists()) {
+        dockerExecutable.set(rancherDocker.absolutePath)
+    }
     isRequiredBy(tasks.getByName("integrationTest"))
 }
 /***************************

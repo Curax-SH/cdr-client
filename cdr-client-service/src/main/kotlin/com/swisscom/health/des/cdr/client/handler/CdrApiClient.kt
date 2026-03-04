@@ -172,11 +172,18 @@ internal class CdrApiClient(
                             logger.debug { "Upload '$file' done" }
                         }
 
-                        response.code in 400..499 -> UploadDocumentResult.UploadClientErrorResponse(
+                        response.code == HttpStatus.BAD_REQUEST.value() -> UploadDocumentResult.UploadClientErrorResponse(
                             code = response.code,
                             responseBody = response.body.string()
                         ).also { result ->
                             logger.info { "Upload '$file' encountered client error: '$result'" }
+                        }
+
+                        response.code in 400..499 -> UploadDocumentResult.UploadClientConfigErrorResponse(
+                            code = response.code,
+                            responseBody = response.body.string()
+                        ).also { result ->
+                            logger.info { "Upload '$file' encountered client config error: '$result'" }
                         }
 
                         else -> UploadDocumentResult.UploadServerErrorResponse(
@@ -409,6 +416,7 @@ internal class CdrApiClient(
     sealed interface UploadDocumentResult {
         object Success : UploadDocumentResult
         data class UploadClientErrorResponse(val code: Int, val responseBody: String) : UploadDocumentResult
+        data class UploadClientConfigErrorResponse(val code: Int, val responseBody: String): UploadDocumentResult
         data class UploadServerErrorResponse(val code: Int, val responseBody: String) : UploadDocumentResult
         data class UploadError(val message: String, val t: Throwable? = null) : UploadDocumentResult
     }

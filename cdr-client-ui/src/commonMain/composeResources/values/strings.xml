@@ -89,4 +89,5 @@
     <string name="error_no_connector">Connector configuration is missing</string>
     <string name="error_is_placeholder">Placeholder value, needs to be replaced</string>
     <string name="error_is_credentials">Credential check failed. Either the given values are wrong or connection couldn't be established.</string>
+    <string name="error_folder_name_used">Using the name 'error' for a directory is only allowed for error directories</string>
 </resources>

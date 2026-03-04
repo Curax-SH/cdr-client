@@ -3,6 +3,7 @@ package com.swisscom.health.des.cdr.client.handler
 import com.mayakapps.kache.ObjectKache
 import com.ninjasquad.springmockk.SpykBean
 import com.swisscom.health.des.cdr.client.AlwaysSameTempDirFactory
+import com.swisscom.health.des.cdr.client.common.Constants.RESTART_FILE_EXTENSION
 import com.swisscom.health.des.cdr.client.config.CdrApi
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig
 import com.swisscom.health.des.cdr.client.config.ClientId
@@ -50,8 +51,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.createDirectories
@@ -90,6 +89,7 @@ internal class PollingPushFileHandlingTest {
     private val inflightDir = "inflight"
     private val targetDirectory = "customer"
     private val sourceDirectory = "source"
+    private val errorDirectory = "error"
     private val forumDatenaustauschMediaType = MediaType.parseMediaType("application/forumdatenaustausch+xml;charset=UTF-8")
 
     @StartStop
@@ -392,7 +392,7 @@ internal class PollingPushFileHandlingTest {
     }
 
     @Test
-    fun `test successfully write two files to API fail with third - no separate error directory`() {
+    fun `test successfully write two files to API fail with third BAD_REQUEST - don't move file`() {
         val mockResponse = MockResponse.Builder()
             .code(HttpStatus.OK.value())
             .headers(Headers.Builder().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).build())
@@ -406,7 +406,50 @@ internal class PollingPushFileHandlingTest {
         cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.BAD_REQUEST.value()).body("{\"message\": \"Exception\"}").build())
 
         val sourceDir = tmpDir.resolve(sourceDirectory)
-        val errorDir = sourceDir.resolve(LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE))
+        val errorDir = sourceDir.resolve(errorDirectory)
+
+        val payload1 = sourceDir.resolve("dummy.xml.tmp")
+        payload1.outputStream().use { it.write("Hello".toByteArray()) }
+        val payload2 = sourceDir.resolve("dummy-2.xml.tmp")
+        payload2.outputStream().use { it.write("Hello 2".toByteArray()) }
+        val payload3 = sourceDir.resolve("dummy-3.xml.tmp")
+        payload3.outputStream().use { it.write("Hello 3".toByteArray()) }
+
+        assertEquals(3, sourceDir.listDirectoryEntries().size)
+
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
+        Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
+        Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
+
+        await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
+
+        assertEquals(0, sourceDir.listDirectoryEntries("*xml").size)
+        assertEquals(1, errorDir.listDirectoryEntries("*xml").size)
+        assertEquals(1, errorDir.listDirectoryEntries("*response").size)
+
+        // but no additional requests for the error and response file should have been made, i.e. the request count
+        // should still be 6 (2 successful and four failed requests)
+        await().during(100, TimeUnit.MILLISECONDS).until(cdrServiceMock::requestCount) { it == 6 }
+
+        // ignored files like the error and response file don't get processed and thus are not supposed to be in the processing cache
+        await().until({ runBlocking { fileCache.getKeys() } }) { it.isEmpty() }
+    }
+
+    @Test
+    fun `test successfully write two files to API fail with third NOT_FOUND - no separate error directory, rename file`() {
+        val mockResponse = MockResponse.Builder()
+            .code(HttpStatus.OK.value())
+            .headers(Headers.Builder().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).build())
+            .body("{\"message\": \"Upload successful\"}")
+            .build()
+        cdrServiceMock.enqueue(mockResponse)
+        cdrServiceMock.enqueue(mockResponse)
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.NOT_FOUND.value()).body("{\"message\": \"Exception\"}").build())
+
+        val sourceDir = tmpDir.resolve(sourceDirectory)
 
         val payload1 = sourceDir.resolve("dummy.xml.tmp")
         payload1.outputStream().use { it.write("Hello".toByteArray()) }
@@ -423,10 +466,9 @@ internal class PollingPushFileHandlingTest {
 
         await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
         await().during(100L, TimeUnit.MILLISECONDS)
-            .until { errorDir.listDirectoryEntries("*response").size == 1 }
+            .until { sourceDir.listDirectoryEntries("*$RESTART_FILE_EXTENSION").size == 1 }
 
-        assertEquals(1, errorDir.listDirectoryEntries("*error").size)
-        assertEquals(1, errorDir.listDirectoryEntries("*response").size)
+        assertEquals(0, sourceDir.listDirectoryEntries("*xml").size)
 
         // but no additional requests for the error and response file should have been made, i.e. the request count
         // should still be 6 (2 successful and four failed requests)
@@ -484,7 +526,7 @@ internal class PollingPushFileHandlingTest {
         await().during(100L, TimeUnit.MILLISECONDS).until(sourceDir0::listDirectoryEntries) { it.none { it.isRegularFile() } }
         await().during(100L, TimeUnit.MILLISECONDS).until { errorDir.listDirectoryEntries("*response").size == 1 }
 
-        assertEquals(1, errorDir.listDirectoryEntries("*error").size)
+        assertEquals(1, errorDir.listDirectoryEntries("*xml").size)
         assertEquals(1, errorDir.listDirectoryEntries("*response").size)
 
         // but no additional requests for the error and response file should have been made, i.e. the request count
@@ -546,8 +588,8 @@ internal class PollingPushFileHandlingTest {
         await().during(100L, TimeUnit.MILLISECONDS).until(invoiceSourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
         await().during(100L, TimeUnit.MILLISECONDS).until { errorDir.listDirectoryEntries("*response").size == 1 }
 
-        assertEquals(absoluteErrorDir, errorDir.parent)
-        assertEquals(1, errorDir.listDirectoryEntries("*error").size)
+        assertEquals(absoluteErrorDir.parent, errorDir.parent)
+        assertEquals(1, errorDir.listDirectoryEntries("*xml").size)
         assertEquals(1, errorDir.listDirectoryEntries("*response").size)
 
         // but no additional requests for the error and response file should have been made, i.e. the request count
@@ -611,7 +653,7 @@ internal class PollingPushFileHandlingTest {
 
         assertTrue(errorDir.startsWith(invoiceSourceDir))
         assertNotEquals(relativeErrorDir, config.customer[0].effectiveConnectorSourceErrorFolder)
-        assertEquals(1, errorDir.listDirectoryEntries("*error").size)
+        assertEquals(1, errorDir.listDirectoryEntries("*xml").size)
         assertEquals(1, errorDir.listDirectoryEntries("*response").size)
 
         // but no additional requests for the error and response file should have been made, i.e. the request count
@@ -623,7 +665,7 @@ internal class PollingPushFileHandlingTest {
     }
 
     @Test
-    fun `test successfully write two files to API fail with third do not retry - no separate error directory`() {
+    fun `test successfully write two files to API fail with third do not retry - no separate error directory defined,  mean error subdirectory`() {
         val mockResponse = MockResponse.Builder()
             .code(HttpStatus.OK.value())
             .headers(Headers.Builder().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).build())
@@ -634,7 +676,7 @@ internal class PollingPushFileHandlingTest {
         cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.BAD_REQUEST.value()).body("{\"message\": \"Exception\"}").build())
 
         val sourceDir = tmpDir.resolve(sourceDirectory)
-        val errorDir = sourceDir.resolve(LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE))
+        val errorDir = sourceDir.resolve(errorDirectory)
 
         val payload1 = sourceDir.resolve("dummy.xml.tmp")
         payload1.outputStream().use { it.write("Hello".toByteArray()) }
@@ -652,7 +694,7 @@ internal class PollingPushFileHandlingTest {
         await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 3 }
         await().during(100L, TimeUnit.MILLISECONDS).until { errorDir.listDirectoryEntries("*response").size == 1 }
 
-        assertEquals(1, errorDir.listDirectoryEntries("*error").size)
+        assertEquals(1, errorDir.listDirectoryEntries("*xml").size)
         assertEquals(1, errorDir.listDirectoryEntries("*response").size)
 
         // but no additional requests for the error and response file should have been made, i.e. the request count
