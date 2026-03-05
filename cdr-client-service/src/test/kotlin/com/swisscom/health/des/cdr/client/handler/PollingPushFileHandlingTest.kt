@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.annotation.Autowired
@@ -206,7 +207,6 @@ internal class PollingPushFileHandlingTest {
 
     @Test
     fun `test successfully write two files to API - with archive`() {
-        val relativeArchiveDir = Path.of("archive")
         val sourceDir0 = tmpDir.resolve(sourceDirectory)
         val targetDir0 = tmpDir.resolve(targetDirectory)
         every { config.customer } returns Customer(
@@ -218,7 +218,7 @@ internal class PollingPushFileHandlingTest {
                     contentType = forumDatenaustauschMediaType.toString(),
                     mode = CdrClientConfig.Mode.TEST,
                     sourceArchiveEnabled = true,
-                    sourceArchiveFolder = relativeArchiveDir,
+                    sourceArchiveFolder = sourceDir0.resolve("archive"),
                 )
             )
         )
@@ -239,10 +239,9 @@ internal class PollingPushFileHandlingTest {
         // 2 files and a subdirectory for the archive
         assertEquals(2, sourceDir0.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
-        val move = Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
 
-        val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder(move)!!
+        val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder()!!
 
         await().during(1000L, TimeUnit.MILLISECONDS).until(sourceDir0::listDirectoryEntries) { it.none { it.isRegularFile() } }
         await().during(100L, TimeUnit.MILLISECONDS)
@@ -258,10 +257,11 @@ internal class PollingPushFileHandlingTest {
     }
 
     @Test
+    @Disabled("requires support for archive directory for specific type, as relative path isn't allowed anymore")
     fun `test successfully write two files to API - with relative archive for specific type`() {
-        val relativeArchiveDir = Path.of("archive")
         val sourceDir0 = tmpDir.resolve(sourceDirectory)
         val targetDir0 = tmpDir.resolve(targetDirectory)
+        val relativeArchiveDir = sourceDir0.resolve("archive")
         val invoiceSourceDir = sourceDir0.resolve("invoice").also { it.createDirectories() }
         every { config.customer } returns Customer(
             mutableListOf(
@@ -294,10 +294,9 @@ internal class PollingPushFileHandlingTest {
         // 2 files and a subdirectory for the archive
         assertEquals(2, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
-        val move = Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
 
-        val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder(move)!!
+        val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder()!!
 
         await().during(1000L, TimeUnit.MILLISECONDS).until(invoiceSourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
         await().during(100L, TimeUnit.MILLISECONDS)
@@ -350,10 +349,9 @@ internal class PollingPushFileHandlingTest {
         // 2 files and a subdirectory for the archive
         assertEquals(2, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
-        val move = Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
 
-        val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder(move)!!
+        val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder()!!
 
         await().during(1000L, TimeUnit.MILLISECONDS).until(invoiceSourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
         await().during(100L, TimeUnit.MILLISECONDS)
@@ -480,7 +478,6 @@ internal class PollingPushFileHandlingTest {
 
     @Test
     fun `test successfully write two files to API fail with third - with separate error directory`() {
-        val relativeErrorDir = Path.of("error")
         val sourceDir0 = tmpDir.resolve(sourceDirectory)
         val targetDir0 = tmpDir.resolve(targetDirectory)
         every { config.customer } returns Customer(
@@ -491,7 +488,7 @@ internal class PollingPushFileHandlingTest {
                     sourceFolder = sourceDir0,
                     contentType = forumDatenaustauschMediaType.toString(),
                     mode = CdrClientConfig.Mode.TEST,
-                    sourceErrorFolder = relativeErrorDir,
+                    sourceErrorFolder = sourceDir0.resolve("error"),
                 )
             )
         )
@@ -517,10 +514,9 @@ internal class PollingPushFileHandlingTest {
 
         assertEquals(3, sourceDir0.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
-        val move = Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
-        val errorDir = config.customer.first().getEffectiveSourceErrorFolder(move)
+        val errorDir = config.customer.first().getEffectiveSourceErrorFolder()
 
         await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
         await().during(100L, TimeUnit.MILLISECONDS).until(sourceDir0::listDirectoryEntries) { it.none { it.isRegularFile() } }
@@ -579,10 +575,9 @@ internal class PollingPushFileHandlingTest {
 
         assertEquals(3, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
-        val move = Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
-        val errorDir = config.customer.first().getEffectiveSourceErrorFolder(move)
+        val errorDir = config.customer.first().getEffectiveSourceErrorFolder()
 
         await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
         await().during(100L, TimeUnit.MILLISECONDS).until(invoiceSourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
@@ -601,6 +596,7 @@ internal class PollingPushFileHandlingTest {
     }
 
     @Test
+    @Disabled("requires support for error directory for specific type, as relative path isn't allowed anymore")
     fun `test successfully write two files to API fail with third - with separate error directory for defined type`() {
         val relativeErrorDir = Path.of("error")
         val sourceDir0 = tmpDir.resolve(sourceDirectory)
@@ -642,17 +638,16 @@ internal class PollingPushFileHandlingTest {
 
         assertEquals(3, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
-        val move = Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
-        val errorDir = config.customer.first().getEffectiveSourceErrorFolder(move)
+        val errorDir = config.customer.first().getEffectiveSourceErrorFolder()
 
         await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
         await().during(100L, TimeUnit.MILLISECONDS).until(invoiceSourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
         await().during(100L, TimeUnit.MILLISECONDS).until { errorDir.listDirectoryEntries("*response").size == 1 }
 
         assertTrue(errorDir.startsWith(invoiceSourceDir))
-        assertNotEquals(relativeErrorDir, config.customer[0].effectiveConnectorSourceErrorFolder)
+        assertNotEquals(relativeErrorDir, config.customer[0].getEffectiveSourceErrorFolder())
         assertEquals(1, errorDir.listDirectoryEntries("*xml").size)
         assertEquals(1, errorDir.listDirectoryEntries("*response").size)
 

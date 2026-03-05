@@ -16,11 +16,10 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.UUID
+import java.util.*
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.moveTo
-import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 import kotlin.math.min
 
@@ -152,7 +151,7 @@ internal class RetryUploadFileHandling(
 
     private fun deleteOrArchiveFile(file: Path): Unit = runCatching {
         cdrClientConfig.customer.getConnectorForSourceFile(file).let { connector ->
-            connector.getEffectiveSourceArchiveFolder(file)?.let { archiveDir ->
+            connector.getEffectiveSourceArchiveFolder()?.let { archiveDir ->
                 file.moveTo(
                     archiveDir.resolve("${file.nameWithoutExtension}_${UUID.randomUUID()}.$EXTENSION_XML")
                 )
@@ -181,17 +180,11 @@ internal class RetryUploadFileHandling(
      */
     private fun renameFileToErrorAndCreateLogFile(file: Path, responseBody: String): Unit = runCatching {
         val newBaseName = getBaseNameWithSingleOrNewUuid(file.nameWithoutExtension)
-        val errorFile = file.resolveSibling("$newBaseName.$EXTENSION_XML")
-        val logFile = file.resolveSibling("$newBaseName.response")
+        val errorFolder = cdrClientConfig.customer.getConnectorForSourceFile(file).getEffectiveSourceErrorFolder()
+        val errorFile = errorFolder.resolve("$newBaseName.$EXTENSION_XML")
+        val logFile = errorFolder.resolve("$newBaseName.response")
         file.moveTo(errorFile)
         Files.write(logFile, responseBody.toByteArray(), StandardOpenOption.APPEND, StandardOpenOption.CREATE)
-
-        cdrClientConfig.customer.getConnectorForSourceFile(file).let { connector ->
-            if (connector.getEffectiveSourceErrorFolder(file) != file.parent) {
-                errorFile.moveTo(connector.getEffectiveSourceErrorFolder(file).resolve(errorFile.name))
-                logFile.moveTo(connector.getEffectiveSourceErrorFolder(file).resolve(logFile.name))
-            }
-        }
     }.fold(
         onSuccess = {},
         onFailure = { t: Throwable -> logger.error { "Error during handling of failed upload of '${file}': '$t'" } }

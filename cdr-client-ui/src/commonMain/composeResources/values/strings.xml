@@ -90,4 +90,6 @@
     <string name="error_is_placeholder">Placeholder value, needs to be replaced</string>
     <string name="error_is_credentials">Credential check failed. Either the given values are wrong or connection couldn't be established.</string>
     <string name="error_folder_name_used">Using the name 'error' for a directory is only allowed for error directories</string>
+    <string name="error_folder_overlaps_non_error">Error folders must not overlap with non-error directories</string>
+    <string name="error_folder_needs_absolute_path_error">Directories need to be defined with an absolute path (e.g. C:\home\myuser\archive)</string>
 </resources>

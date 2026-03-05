@@ -1,6 +1,6 @@
 client:
   file-synchronization-enabled: true
-  schedule-delay: PT30S
+  schedule-delay: PT30M
   local-folder: ${CDR_CLIENT_LOCAL_FOLDER:${HOME}/Documents/cdr/inflight}
   idp-credentials:
     tenant-id: ${CDR_B2C_TENANT_ID:test-tenant-client-id} # `test-tenant-client-id` is the required value if the MockOauth2Server is used; see its `config.json`
@@ -30,7 +30,7 @@ client:
       content-type: application/forumdatenaustausch+xml;charset=UTF-8
       source-archive-enabled: false
       source-archive-folder: ${java.io.tmpdir}
-      source-error-folder: errors
+      source-error-folder: ${CDR_CLIENT_SOURCE_FOLDER:${HOME}/Documents/cdr/source}/${client.customer[0].connector-id}/test/errors
       mode: test
       doc-type-folders:
         invoice:
@@ -49,7 +49,8 @@ client:
       target-folder: ${CDR_CLIENT_TARGET_FOLDER:${HOME}/Documents/cdr/target}/${client.customer[2].connector-id}
       source-folder: ${CDR_CLIENT_SOURCE_FOLDER:${HOME}/Documents/cdr/source}/${client.customer[2].connector-id}
       source-archive-enabled: true
-      source-archive-folder: archive
+      source-error-folder: ${CDR_CLIENT_SOURCE_FOLDER:${HOME}/Documents/cdr/source}/${client.customer[2].connector-id}
+      source-archive-folder: ${CDR_CLIENT_SOURCE_FOLDER:${HOME}/Documents/cdr/source}/${client.customer[2].connector-id}/archive
       mode: test
       doc-type-folders:
         invoice:
