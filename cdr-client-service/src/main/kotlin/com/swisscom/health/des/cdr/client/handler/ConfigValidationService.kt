@@ -2,6 +2,7 @@ package com.swisscom.health.des.cdr.client.handler
 
 import com.swisscom.health.des.cdr.client.common.Constants.ERROR_DIR_NAME
 import com.swisscom.health.des.cdr.client.common.DTOs
+import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.DIRECTORY_NEEDS_ABSOLUTE_PATH
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.DIRECTORY_NOT_FOUND
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.DUPLICATE_MODE
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.DUPLICATE_SOURCE_DIRS
@@ -17,7 +18,6 @@ import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.NO_CO
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.TARGET_DIR_OVERLAPS_SOURCE_DIRS
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.VALUE_IS_BLANK
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.VALUE_IS_PLACEHOLDER
-import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.DIRECTORY_NEEDS_ABSOLUTE_PATH
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationResult
 import com.swisscom.health.des.cdr.client.common.DomainObjects
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ConfigurationItem.ARCHIVE_DIRECTORY
@@ -310,49 +310,35 @@ internal class ConfigValidationService(
                 }
             }
 
-        fun getSourceErrorFolders(): List<Path> = config.customer
-            .flatMap { connector ->
-                val baseSource = Path.of(connector.sourceFolder)
-                val sourceRoots = listOf(baseSource) + connector.docTypeFolders.values.mapNotNull { docTypeFolders ->
-                    docTypeFolders.sourceFolder?.let { baseSource.resolve(it) }
-                }
-
-                val configuredErrorPath = Path.of(connector.sourceErrorFolder ?: ERROR_DIR_NAME)
-                val effectiveErrorPaths = if (configuredErrorPath.isAbsolute) {
-                    listOf(configuredErrorPath)
-                } else {
-                    sourceRoots.map { it.resolve(configuredErrorPath) }
+        fun getSourceErrorFolder(): List<Path> = config.customer
+            .map { connector ->
+                val effectiveErrorPaths: Path = when (connector.sourceErrorFolder) {
+                    null -> Path.of(connector.sourceFolder).resolve(ERROR_DIR_NAME)
+                    connector.sourceFolder -> Path.of(connector.sourceFolder).resolve(ERROR_DIR_NAME)
+                    else -> Path.of(connector.sourceErrorFolder!!)
                 }
 
                 logger.debug {
-                    "connector [${connector.connectorId}-${connector.mode}] source error folder: [${connector.sourceErrorFolder ?: ERROR_DIR_NAME}], " +
-                            "effective paths: [${effectiveErrorPaths.joinToString()}]"
+                    "connector [${connector.connectorId}-${connector.mode}] source error folder: [$effectiveErrorPaths]"
                 }
                 effectiveErrorPaths
-            }
-            .distinct()
+            }.distinct()
 
         fun getSourceArchiveFolders(): List<Path> = config.customer
             .mapNotNull { connector ->
                 connector.sourceArchiveFolder?.let { archiveFolder ->
                     val archivePath = Path.of(archiveFolder)
-                    val effectiveArchivePath = if (archivePath.isAbsolute) {
-                        archivePath
-                    } else {
-                        Path.of(connector.sourceFolder).resolve(archivePath)
-                    }
                     logger.debug {
-                        "connector [${connector.connectorId}-${connector.mode}] source archive folder: [${connector.sourceArchiveFolder}], " +
-                                "effective path: [$effectiveArchivePath]"
+                        "connector [${connector.connectorId}-${connector.mode}] source archive folder: [$archivePath]"
                     }
-                    effectiveArchivePath
+                    archivePath
                 }
-            }
+            }.distinct()
 
         val localDirectory: List<Path> = listOf(Path.of(config.localFolder))
         val baseSourceFolders: List<Path> = getAllBaseSourceFolders()
         val allSourceTypeFolders: List<Path> = getAllSourceDocTypeFolders()
-        val errorFolders: List<Path> = getSourceErrorFolders()
+        val errorFolders: List<Path> = getSourceErrorFolder()
         val archiveFolders: List<Path> = getSourceArchiveFolders()
         val baseTargetFolders: List<Path> = getAllBaseTargetFolders()
         val allTargetTypeFolders: List<Path> = getAllTargetDocTypeFolders()

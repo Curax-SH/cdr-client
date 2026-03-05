@@ -239,6 +239,7 @@ internal class PollingPushFileHandlingTest {
         // 2 files and a subdirectory for the archive
         assertEquals(2, sourceDir0.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
 
         val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder()!!
@@ -294,6 +295,7 @@ internal class PollingPushFileHandlingTest {
         // 2 files and a subdirectory for the archive
         assertEquals(2, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
 
         val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder()!!
@@ -349,6 +351,7 @@ internal class PollingPushFileHandlingTest {
         // 2 files and a subdirectory for the archive
         assertEquals(2, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
 
         val archiveDir = config.customer.first().getEffectiveSourceArchiveFolder()!!
@@ -514,6 +517,7 @@ internal class PollingPushFileHandlingTest {
 
         assertEquals(3, sourceDir0.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
         val errorDir = config.customer.first().getEffectiveSourceErrorFolder()
@@ -575,6 +579,7 @@ internal class PollingPushFileHandlingTest {
 
         assertEquals(3, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
         val errorDir = config.customer.first().getEffectiveSourceErrorFolder()
@@ -638,6 +643,7 @@ internal class PollingPushFileHandlingTest {
 
         assertEquals(3, invoiceSourceDir.listDirectoryEntries().filter { it.isRegularFile() }.size)
 
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
         val errorDir = config.customer.first().getEffectiveSourceErrorFolder()
