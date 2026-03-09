@@ -202,7 +202,11 @@ internal data class Connector(
     @JsonIgnore
     fun getEffectiveSourceArchiveFolder(): Path? =
         if (sourceArchiveEnabled) {
-            createDirectoryIfMissing(sourceArchiveFolder!!.resolve(getDateNow()))
+            createDirectoryIfMissing(when (sourceArchiveFolder) {
+                null -> sourceFolder.resolve("archive")
+                sourceFolder -> sourceFolder.resolve("archive")
+                else -> sourceArchiveFolder
+            }.resolve(getDateNow()))
         } else {
             null
         }

@@ -437,7 +437,50 @@ internal class PollingPushFileHandlingTest {
     }
 
     @Test
-    fun `test successfully write two files to API fail with third NOT_FOUND - no separate error directory, rename file`() {
+    fun `test successfully write two files to API fail with third CONFLICT - no separate error directory, rename file`() {
+        val mockResponse = MockResponse.Builder()
+            .code(HttpStatus.OK.value())
+            .headers(Headers.Builder().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).build())
+            .body("{\"message\": \"Upload successful\"}")
+            .build()
+        cdrServiceMock.enqueue(mockResponse)
+        cdrServiceMock.enqueue(mockResponse)
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.CONFLICT.value()).body("{\"message\": \"Exception\"}").build())
+
+        val sourceDir = tmpDir.resolve(sourceDirectory)
+
+        val payload1 = sourceDir.resolve("dummy.xml.tmp")
+        payload1.outputStream().use { it.write("Hello".toByteArray()) }
+        val payload2 = sourceDir.resolve("dummy-2.xml.tmp")
+        payload2.outputStream().use { it.write("Hello 2".toByteArray()) }
+        val payload3 = sourceDir.resolve("dummy-3.xml.tmp")
+        payload3.outputStream().use { it.write("Hello 3".toByteArray()) }
+
+        assertEquals(3, sourceDir.listDirectoryEntries().size)
+
+        Files.move(payload1, payload1.resolveSibling(payload1.nameWithoutExtension))
+        Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
+        Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
+
+        await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
+        await().during(100L, TimeUnit.MILLISECONDS)
+            .until { sourceDir.listDirectoryEntries("*$RESTART_FILE_EXTENSION").size == 1 }
+
+        assertEquals(0, sourceDir.listDirectoryEntries("*xml").size)
+
+        // but no additional requests for the renamed file should have been made, i.e. the request count
+        // should still be 6 (2 successful and four failed requests)
+        await().during(100, TimeUnit.MILLISECONDS).until(cdrServiceMock::requestCount) { it == 6 }
+
+        // ignored files like the error and response file don't get processed and thus are not supposed to be in the processing cache
+        await().until({ runBlocking { fileCache.getKeys() } }) { it.isEmpty() }
+    }
+
+    @Test
+    fun `test successfully write two files to API fail with third NOT_FOUND - file is retried`() {
         val mockResponse = MockResponse.Builder()
             .code(HttpStatus.OK.value())
             .headers(Headers.Builder().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).build())
@@ -465,18 +508,15 @@ internal class PollingPushFileHandlingTest {
         Files.move(payload2, payload2.resolveSibling(payload2.nameWithoutExtension))
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
 
-        await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
-        await().during(100L, TimeUnit.MILLISECONDS)
-            .until { sourceDir.listDirectoryEntries("*$RESTART_FILE_EXTENSION").size == 1 }
+        val expectedMinRequests = 6
+        await().atMost(5, TimeUnit.SECONDS).until { cdrServiceMock.requestCount == expectedMinRequests }
+        assertEquals(1, sourceDir.listDirectoryEntries("*upload").size)
 
-        assertEquals(0, sourceDir.listDirectoryEntries("*xml").size)
+        // Wait for more requests to be made due to retries (should increase above 6)
+        await().atMost(5, TimeUnit.SECONDS).until { cdrServiceMock.requestCount > expectedMinRequests }
 
-        // but no additional requests for the error and response file should have been made, i.e. the request count
-        // should still be 6 (2 successful and four failed requests)
-        await().during(100, TimeUnit.MILLISECONDS).until(cdrServiceMock::requestCount) { it == 6 }
-
-        // ignored files like the error and response file don't get processed and thus are not supposed to be in the processing cache
-        await().until({ runBlocking { fileCache.getKeys() } }) { it.isEmpty() }
+        // the file should remain in the cache and be retried
+        await().until({ runBlocking { fileCache.getKeys() } }) { it.isNotEmpty() }
     }
 
     @Test

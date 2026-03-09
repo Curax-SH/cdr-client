@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "/documents",
+        "headers": {
+          "cdr-connector-id": {
+            "equalTo": "404"
+          }
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "Content-Type": "application/problem+json; charset=utf-8"
+        },
+        "body": "{\"type\":\"about:blank\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"Resource not found.\"}"
+      }
+    }
+  ]
+}

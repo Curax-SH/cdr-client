@@ -1,6 +1,6 @@
 [versions]
 jdk="21"
-kotlin-lang = "2.2.21"
+kotlin-lang = "2.3.10"
 compose-multiplatform = "1.10.2"
 compose-native-tray = "1.1.0"
 kotlin-logging = "7.0.14"

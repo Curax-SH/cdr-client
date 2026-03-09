@@ -73,3 +73,10 @@ client:
       source-folder: ${CDR_CLIENT_SOURCE_FOLDER:${HOME}/Documents/cdr/source}/${client.customer[5].connector-id}
       source-archive-enabled: false
       mode: production
+    - connector-id: 404
+      content-type: application/forumdatenaustausch+xml;charset=UTF-8
+      target-folder: ${CDR_CLIENT_TARGET_FOLDER:${HOME}/Documents/cdr/target}/${client.customer[6].connector-id}
+      source-folder: ${CDR_CLIENT_SOURCE_FOLDER:${HOME}/Documents/cdr/source}/${client.customer[6].connector-id}
+      source-archive-enabled: false
+      mode: production
+

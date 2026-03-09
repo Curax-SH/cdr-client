@@ -6,7 +6,7 @@
         "method": "POST",
         "headers": {
           "cdr-connector-id": {
-            "doesNotMatch": "(1|5|666|2345)"
+            "doesNotMatch": "(1|5|404|666|2345)"
           },
           "Authorization": {
             "matches": "Bearer .*"

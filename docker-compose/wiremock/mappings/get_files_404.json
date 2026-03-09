@@ -1,0 +1,33 @@
+{
+  "mappings":
+  [
+    {
+      "scenarioName": "Get Files for connector 404 - none there",
+      "requiredScenarioState": "Started",
+      "newScenarioState": "Started",
+      "request": {
+        "method": "GET",
+        "urlPath": "/documents",
+        "queryParameters": {
+          "limit": {
+            "matches": "1"
+          }
+        },
+        "headers": {
+          "cdr-connector-id": {
+            "equalTo": "404"
+          },
+          "Authorization": {
+            "matches": "Bearer .*"
+          }
+        }
+      },
+      "response": {
+        "status": 204,
+        "headers": {
+          "Content-Type": "*/*"
+        }
+      }
+    }
+  ]
+}

@@ -46,7 +46,7 @@ internal class RetryUploadFileHandling(
     /**
      * Retries the upload of a file until it is successful or a 4xx error occurred.
      */
-    @Suppress("NestedBlockDepth", "LongMethod")
+    @Suppress("NestedBlockDepth", "LongMethod", "CyclomaticComplexMethod")
     suspend fun uploadRetrying(file: Path, connector: Connector) {
         logger.debug { "Uploading file '$file'" }
         var retryCount = 0
@@ -77,7 +77,15 @@ internal class RetryUploadFileHandling(
                         false
                     }
 
-                    is UploadDocumentResult.UploadClientConfigErrorResponse -> {
+                    is UploadDocumentResult.UploadClientRetryableErrorResponse -> {
+                        logger.error {
+                            "File synchronization failed for '${uploadFile.fileName}'. Received a 4xx client error (response code: '${response.code}'). " +
+                                    "Retry will be attempted in '${cdrClientConfig.retryDelay[retryIndex]}'"
+                        }
+                       true
+                    }
+
+                    is UploadDocumentResult.UploadClientConfigNonRetryableErrorResponse -> {
                         logger.error {
                             "File synchronization failed for '${uploadFile.fileName}'. Received a 4xx client error (response code: '${response.code}'). " +
                                     "The file extension will be modified and it will be retried after the next restart."

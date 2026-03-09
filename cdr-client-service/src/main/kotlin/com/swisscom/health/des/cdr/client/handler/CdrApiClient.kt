@@ -179,11 +179,19 @@ internal class CdrApiClient(
                             logger.info { "Upload '$file' encountered client error: '$result'" }
                         }
 
-                        response.code in 400..499 -> UploadDocumentResult.UploadClientConfigErrorResponse(
+                        response.code == HttpStatus.NOT_FOUND.value() || response.code == HttpStatus.TOO_MANY_REQUESTS.value() ->
+                            UploadDocumentResult.UploadClientRetryableErrorResponse(
+                                code = response.code,
+                                responseBody = response.body.string()
+                            ).also { result ->
+                                logger.info { "Upload '$file' encountered client config error: '$result'" }
+                            }
+
+                        response.code in 400..499 -> UploadDocumentResult.UploadClientConfigNonRetryableErrorResponse(
                             code = response.code,
                             responseBody = response.body.string()
                         ).also { result ->
-                            logger.info { "Upload '$file' encountered client config error: '$result'" }
+                            logger.info { "Upload '$file' encountered client config non-retryable error: '$result'" }
                         }
 
                         else -> UploadDocumentResult.UploadServerErrorResponse(
@@ -197,6 +205,7 @@ internal class CdrApiClient(
         }.fold(
             onSuccess = { it },
             onFailure = { t ->
+                // 5xx responses from the server will also go through here, because of our okHttpClient Bean
                 logger.error { "Upload file '$file' failed: ${t.message}" }
                 UploadDocumentResult.UploadError(message = t.message ?: "Unknown error", t = t)
             }
@@ -416,7 +425,8 @@ internal class CdrApiClient(
     sealed interface UploadDocumentResult {
         object Success : UploadDocumentResult
         data class UploadClientErrorResponse(val code: Int, val responseBody: String) : UploadDocumentResult
-        data class UploadClientConfigErrorResponse(val code: Int, val responseBody: String): UploadDocumentResult
+        data class UploadClientRetryableErrorResponse(val code: Int, val responseBody: String) : UploadDocumentResult
+        data class UploadClientConfigNonRetryableErrorResponse(val code: Int, val responseBody: String) : UploadDocumentResult
         data class UploadServerErrorResponse(val code: Int, val responseBody: String) : UploadDocumentResult
         data class UploadError(val message: String, val t: Throwable? = null) : UploadDocumentResult
     }
