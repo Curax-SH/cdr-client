@@ -4,6 +4,7 @@ import com.mayakapps.kache.ObjectKache
 import com.swisscom.health.des.cdr.client.SpanContextElement
 import com.swisscom.health.des.cdr.client.TraceSupport.continueSpan
 import com.swisscom.health.des.cdr.client.TraceSupport.startSpan
+import com.swisscom.health.des.cdr.client.common.Constants.RESTART_FILE_EXTENSION
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig
 import com.swisscom.health.des.cdr.client.config.FileBusyTester
 import com.swisscom.health.des.cdr.client.config.getConnectorForSourceFile
@@ -54,6 +55,7 @@ import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
+import kotlin.io.path.nameWithoutExtension
 
 private val logger = KotlinLogging.logger {}
 
@@ -82,7 +84,7 @@ internal class EventTriggerUploadScheduler(
 ) {
 
     @PostConstruct
-    @Suppress("unused")
+    @Suppress("unused", "NestedBlockDepth", "TooGenericExceptionCaught")
     private fun failIfTelemetrySamplingIsEnabled() {
         if (samplerProbability > ZERO_SAMPLING_THRESHOLD) {
             logger.error {
@@ -91,6 +93,29 @@ internal class EventTriggerUploadScheduler(
                         "coroutines/asynchronous flows. You need to disable telemetry sampling."
             }
             error("Telemetry sampling is enabled. Please set the configuration property `management.tracing.sampling.probability` to 0.0")
+        }
+
+        if (!schedulingValidationService.isSchedulingAllowed) {
+            logger.info { "Scheduling is not allowed. Skipping renaming of '.$RESTART_FILE_EXTENSION' files." }
+            return
+        }
+
+        logger.info { "Renaming '.$RESTART_FILE_EXTENSION' files to '.xml' in source directories..." }
+        config.customer.forEach { connector ->
+            val allSourceFolders: List<Path> = listOf(connector.sourceFolder) + connector.getAllSourceDocTypeFolders()
+            allSourceFolders.forEach { dir ->
+                if (Files.exists(dir) && Files.isDirectory(dir)) {
+                    dir.listDirectoryEntries("*.$RESTART_FILE_EXTENSION").forEach { file ->
+                        val newFile = file.resolveSibling("${file.nameWithoutExtension}.xml")
+                        try {
+                            Files.move(file, newFile)
+                            logger.info { "Renamed file '${file.absolutePathString()}' to '${newFile.absolutePathString()}'" }
+                        } catch (e: Exception) {
+                            logger.error { "Failed to rename file '${file.absolutePathString()}': ${e.message}" }
+                        }
+                    }
+                }
+            }
         }
     }
 

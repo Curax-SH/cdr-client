@@ -51,6 +51,9 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.a
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.arrow_drop_up_24dp_000000_FILL0_wght400_GRAD0_opsz24
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_directory_not_found
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_duplicate_mode
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_folder_name_used
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_folder_needs_absolute_path_error
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_folder_overlaps_non_error
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_illegal_mode
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_is_credentials
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_is_placeholder
@@ -105,6 +108,9 @@ internal val DTOs.ValidationMessageKey.stringResource: StringResource
             DTOs.ValidationMessageKey.VALUE_IS_PLACEHOLDER -> Res.string.error_is_placeholder
             DTOs.ValidationMessageKey.ILLEGAL_MODE -> Res.string.error_illegal_mode
             DTOs.ValidationMessageKey.CREDENTIAL_VALIDATION_FAILED -> Res.string.error_is_credentials
+            DTOs.ValidationMessageKey.ERROR_AS_NON_ERROR_FOLDER_NAME_USED -> Res.string.error_folder_name_used
+            DTOs.ValidationMessageKey.ERROR_DIR_OVERLAPS_NON_ERROR_DIR -> Res.string.error_folder_overlaps_non_error
+            DTOs.ValidationMessageKey.DIRECTORY_NEEDS_ABSOLUTE_PATH -> Res.string.error_folder_needs_absolute_path_error
         }
 
 @Composable

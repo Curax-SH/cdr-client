@@ -41,20 +41,20 @@ internal fun Connector.toDto(): DTOs.CdrClientConfig.Connector {
             Map<DTOs.CdrClientConfig.DocumentType, DTOs.CdrClientConfig.Connector.DocTypeFolders> {
         return map { (key, value) ->
             DTOs.CdrClientConfig.DocumentType.entries.first { it.name == key.name } to DTOs.CdrClientConfig.Connector.DocTypeFolders(
-                sourceFolder = value.sourceFolder?.absolutePathString(),
-                targetFolder = value.targetFolder?.absolutePathString(),
+                sourceFolder = value.sourceFolder?.toString(),
+                targetFolder = value.targetFolder?.toString(),
             )
         }.toMap()
     }
 
     return DTOs.CdrClientConfig.Connector(
         connectorId = connectorId.id,
-        targetFolder = targetFolder.absolutePathString(),
-        sourceFolder = sourceFolder.absolutePathString(),
+        targetFolder = targetFolder.toString(),
+        sourceFolder = sourceFolder.toString(),
         contentType = contentType,
         sourceArchiveEnabled = sourceArchiveEnabled,
-        sourceArchiveFolder = sourceArchiveFolder?.absolutePathString(),
-        sourceErrorFolder = sourceErrorFolder?.absolutePathString(),
+        sourceArchiveFolder = sourceArchiveFolder?.toString(),
+        sourceErrorFolder = sourceErrorFolder?.toString(),
         mode = DTOs.CdrClientConfig.Mode.entries.first { it.name == mode.name },
         docTypeFolders = effectiveDocTypeFolders.toDto(),
     )

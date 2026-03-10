@@ -1,6 +1,5 @@
 package com.swisscom.health.des.cdr.client.ui
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -69,7 +68,6 @@ private const val SCOPE_TEST = "https://tst.identity.health.swisscom.ch/CdrApi/.
 private const val SCOPE_DEFAULT = "https://identity.health.swisscom.ch/CdrApi/.default"
 
 @Composable
-@Preview
 internal fun CdrConfigScreen(
     modifier: Modifier = Modifier,
     viewModel: CdrConfigViewModel,

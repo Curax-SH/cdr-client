@@ -78,16 +78,16 @@ class ConfigConverterTest {
             mutableListOf(
                 Connector(
                     connectorId = ConnectorId("1"),
-                    targetFolder = ABSOLUTE_PATH,
-                    sourceFolder = ABSOLUTE_PATH,
+                    targetFolder = RELATIVE_PATH,
+                    sourceFolder = RELATIVE_PATH,
                     contentType = MediaType.APPLICATION_OCTET_STREAM.toString(),
                     sourceArchiveEnabled = false,
-                    sourceArchiveFolder = ABSOLUTE_PATH,
-                    sourceErrorFolder = ABSOLUTE_PATH,
+                    sourceArchiveFolder = RELATIVE_PATH,
+                    sourceErrorFolder = RELATIVE_PATH,
                     mode = CdrClientConfig.Mode.PRODUCTION,
                     docTypeFolders = mapOf(
-                        DocumentType.CONTAINER to Connector.DocTypeFolders(sourceFolder = ABSOLUTE_PATH),
-                        DocumentType.CREDIT to Connector.DocTypeFolders(targetFolder = ABSOLUTE_PATH),
+                        DocumentType.CONTAINER to Connector.DocTypeFolders(sourceFolder = RELATIVE_PATH),
+                        DocumentType.CREDIT to Connector.DocTypeFolders(targetFolder = RELATIVE_PATH),
                     ),
                 )
             )),
