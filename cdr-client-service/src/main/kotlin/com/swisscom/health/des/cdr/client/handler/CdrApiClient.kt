@@ -176,7 +176,7 @@ internal class CdrApiClient(
                             code = response.code,
                             responseBody = response.body.string()
                         ).also { result ->
-                            logger.info { "Upload '$file' encountered client error: '$result'" }
+                            logger.debug { "Upload '$file' encountered client error: '$result'" }
                         }
 
                         response.code == HttpStatus.NOT_FOUND.value() || response.code == HttpStatus.TOO_MANY_REQUESTS.value() ->
@@ -184,21 +184,21 @@ internal class CdrApiClient(
                                 code = response.code,
                                 responseBody = response.body.string()
                             ).also { result ->
-                                logger.info { "Upload '$file' encountered client config error: '$result'" }
+                                logger.debug { "Upload '$file' encountered client config error: '$result'" }
                             }
 
                         response.code in 400..499 -> UploadDocumentResult.UploadClientConfigNonRetryableErrorResponse(
                             code = response.code,
                             responseBody = response.body.string()
                         ).also { result ->
-                            logger.info { "Upload '$file' encountered client config non-retryable error: '$result'" }
+                            logger.debug { "Upload '$file' encountered client config non-retryable error: '$result'" }
                         }
 
                         else -> UploadDocumentResult.UploadServerErrorResponse(
                             code = response.code,
                             responseBody = response.body.string()
                         ).also { result ->
-                            logger.info { "Upload '$file' encountered server error: '$result'" }
+                            logger.debug { "Upload '$file' encountered server error: '$result'" }
                         }
                     }
                 }
