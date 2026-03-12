@@ -105,12 +105,13 @@ arrives, it might happen that both processes pick up the same file for processin
 continue to process the file, depending on which one is first to register the file for processing.
 
 After the file is successfully uploaded, it is either deleted or archived, depending on the connector configuration. If
-the upload failed with a response code of 4xx, the file will be appended with '.error' and an additional file with the
+the upload failed with a response code of 400, the file will be moved to the error directory and an additional file with the
 same name as the file sent, but with the extension '.log', will be created and the received response body will be saved
-to this file. If the upload failed with a response code of 5xx, the file will be retried indefinitely, assuming the root
+to this file. If the upload failed with a response code of 404, 429 or 5xx, the file will be retried indefinitely, assuming the root
 cause is an infrastructure issue that will ultimately be resolved (and uploading another file would fail too, for the
 same reason). See retry-delay in the [application-client.yaml](./cdr-client-service/src/main/resources/config/application-client.yaml)
-file.
+file. If the upload failed with any other 4xx code, the file extension will be changed to '.clientRestartRequired' and will be retried
+after the client was restarted, assuming the root cause is a misconfiguration that will be resolved by the user after inspecting the log file.
 
 ## Local development
 
