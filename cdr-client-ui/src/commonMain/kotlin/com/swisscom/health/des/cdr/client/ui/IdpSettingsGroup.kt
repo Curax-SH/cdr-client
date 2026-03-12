@@ -24,6 +24,7 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.l
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_tenant_id
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_tenant_id_placeholder
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_validate
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_validate_idp_credentials_info
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.message_loading_initial_config
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.compose.resources.stringResource
@@ -121,4 +122,5 @@ private fun CheckButton(enabled: Boolean, onClick: () -> Unit) =
         label = stringResource(Res.string.label_validate),
         onClick = onClick,
         enabled = enabled,
+        toolTip = stringResource(Res.string.label_validate_idp_credentials_info)
     ).also { logger.trace { "CheckButton has been (re-)composed." } }

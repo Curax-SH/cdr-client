@@ -3,6 +3,7 @@ package com.swisscom.health.des.cdr.client.config
 import com.mayakapps.kache.InMemoryKache
 import com.mayakapps.kache.KacheStrategy
 import com.mayakapps.kache.ObjectKache
+import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService.AuthNResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineDispatcher
@@ -39,7 +40,10 @@ internal class CdrClientContext {
      */
     @Bean
     fun proxyConfiguration(config: CdrClientConfig): ProxyConfiguration = when {
-        config.proxyUrl == null -> ProxyConfiguration.Disabled.also { logger.info { "No proxy URL configured, proceeding without HTTP proxy" } }
+        config.proxyUrl == null || config.proxyUrl.url == EMPTY_STRING -> ProxyConfiguration.Disabled.also {
+            logger.debug { "No proxy URL configured, proceeding without HTTP proxy" }
+        }
+
         !config.proxyUrl.url.startsWith("http://") && !config.proxyUrl.url.startsWith("https://") ->
             ProxyConfiguration.Disabled.also { logger.error { "Invalid proxy URL '${config.proxyUrl.url}': must start with http:// or https://" } }
 

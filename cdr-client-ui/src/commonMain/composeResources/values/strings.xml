@@ -29,6 +29,7 @@
     <string name="label_client_idp_settings_client_secret_renewal">Automatic Secret Renewal</string>
     <string name="label_client_idp_settings_client_secret_renewal_subtitle">If enabled automatically renews the client secret every 365 days</string>
     <string name="label_client_idp_settings_client_secret_renewal_timestamp">Last client secret renewal occurred at</string>
+    <string name="label_validate_idp_credentials_info">Note: This test uses the currently saved proxy settings. If you changed the proxy URL, save the configuration first before testing.</string>
     <string name="label_client_local_folder">Temporary download directory</string>
     <string name="label_client_local_folder_placeholder">curaLINE client temporary download directory</string>
     <string name="label_client_file_busy_strategy">File busy test strategy</string>

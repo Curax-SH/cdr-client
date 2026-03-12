@@ -251,6 +251,7 @@ internal class ProxyConfigurationEnabledTest {
 
         @JvmStatic
         @DynamicPropertySource
+        @Suppress("UNUSED_PARAMETER")
         fun properties(registry: DynamicPropertyRegistry) {
             // Start mock servers BEFORE Spring context initialization
             mockProxyServer = MockWebServer()
@@ -299,18 +300,3 @@ internal class ProxyConfigurationEnabledTest {
         }"""
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -52,6 +52,13 @@ internal class HealthIndicators(
     @Bean
     fun authNHealthIndicator(): HealthIndicator =
         HealthIndicator {
+            // If file synchronization is disabled, authentication is not needed
+            if (!config.fileSynchronizationEnabled.value) {
+                return@HealthIndicator Health.status(AUTHN_UNAUTHENTICATED)
+                    .withDetail("authNState", "authentication not needed (synchronization disabled)")
+                    .build()
+            }
+
             when (authNService.currentAuthNStateNonBlocking()) {
                 UNAUTHENTICATED -> Health.status(AUTHN_UNAUTHENTICATED).withDetail("authNState", "no login attempted").build()
                 AUTHENTICATED -> Health.status(AUTHN_AUTHENTICATED).withDetail("authNState", "JWT obtained").build()
