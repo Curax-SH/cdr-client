@@ -125,7 +125,9 @@ class DTOs {
         CREDENTIAL_VALIDATION_FAILED,
         ERROR_AS_NON_ERROR_FOLDER_NAME_USED,
         ERROR_DIR_OVERLAPS_NON_ERROR_DIR,
-        DIRECTORY_NEEDS_ABSOLUTE_PATH
+        DIRECTORY_NEEDS_ABSOLUTE_PATH,
+        PROXY_URL_MUST_START_WITH_HTTP_OR_HTTPS,
+        PROXY_URL_INVALID_FORMAT
     }
 
 
@@ -187,6 +189,7 @@ class DTOs {
         val fileBusyTestInterval: Duration,
         val fileBusyTestTimeout: Duration,
         val fileBusyTestStrategy: FileBusyTestStrategy,
+        val proxyUrl: String,
     ) {
 
         companion object {
@@ -208,6 +211,7 @@ class DTOs {
                 fileBusyTestTimeout = Duration.ZERO,
                 fileBusyTestStrategy = FileBusyTestStrategy.NEVER_BUSY,
                 retryTemplate = RetryTemplateConfig.EMPTY,
+                proxyUrl = EMPTY_STRING,
             )
         }
 

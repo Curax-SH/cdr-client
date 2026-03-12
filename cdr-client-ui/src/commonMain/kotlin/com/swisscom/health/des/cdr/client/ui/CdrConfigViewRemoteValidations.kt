@@ -110,6 +110,45 @@ internal class CdrConfigViewRemoteValidations(
             }
         }
 
+    /**
+     * Validates that the given proxy URL is either empty or a valid HTTP/HTTPS URL format.
+     *
+     * @param url the proxy URL to validate
+     * @return a [DTOs.ValidationResult] indicating success or failure
+     */
+    internal fun validateProxyUrl(url: String): DTOs.ValidationResult {
+        // Empty is valid (no proxy configured)
+        if (url.isBlank()) return DTOs.ValidationResult.Success
+
+        // Proxy must start with http:// or https://
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            return DTOs.ValidationResult.Failure(
+                listOf(
+                    DTOs.ValidationDetail.ConfigItemDetail(
+                        configItem = DomainObjects.ConfigurationItem.PROXY_URL,
+                        messageKey = DTOs.ValidationMessageKey.PROXY_URL_MUST_START_WITH_HTTP_OR_HTTPS
+                    )
+                )
+            )
+        }
+
+        // Try to parse as URL to validate format
+        return try {
+            java.net.URI(url).toURL()
+            DTOs.ValidationResult.Success
+        } catch (e: Exception) {
+            logger.warn { "Proxy URL validation failed for '$url': ${e.message}" }
+            DTOs.ValidationResult.Failure(
+                listOf(
+                    DTOs.ValidationDetail.ConfigItemDetail(
+                        configItem = DomainObjects.ConfigurationItem.PROXY_URL,
+                        messageKey = DTOs.ValidationMessageKey.PROXY_URL_INVALID_FORMAT
+                    )
+                )
+            )
+        }
+    }
+
     private suspend fun <U> CdrClientApiClient.Result<U>.handle(
         configurationItem: DomainObjects.ConfigurationItem,
         onIOError: ValidationErrorHandler = loggingErrorHandler,

@@ -1,5 +1,6 @@
 package com.swisscom.health.des.cdr.client.config
 
+import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig.RetryTemplateConfig
 import com.swisscom.health.des.cdr.client.xml.DocumentType
@@ -33,6 +34,7 @@ internal fun CdrClientConfig.toDto(): DTOs.CdrClientConfig {
         fileBusyTestInterval = fileBusyTestInterval,
         fileBusyTestTimeout = fileBusyTestTimeout,
         fileBusyTestStrategy = fileBusyTestStrategy.toDto(),
+        proxyUrl = proxyUrl?.url ?: EMPTY_STRING,
     )
 }
 
@@ -114,6 +116,7 @@ internal fun DTOs.CdrClientConfig.toCdrClientConfig(): CdrClientConfig {
         fileBusyTestInterval = fileBusyTestInterval,
         fileBusyTestTimeout = fileBusyTestTimeout,
         fileBusyTestStrategy = fileBusyTestStrategy.toCdrClientConfig(),
+        proxyUrl = ProxyUrl(proxyUrl),
     )
 }
 

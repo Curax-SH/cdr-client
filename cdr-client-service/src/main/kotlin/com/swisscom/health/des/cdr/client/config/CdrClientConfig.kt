@@ -79,6 +79,9 @@ internal data class CdrClientConfig(
 
     /** Strategy to test whether a file is still busy (written into) before attempting to upload it. */
     val fileBusyTestStrategy: FileBusyTestStrategyProperty,
+
+    /** Proxy URL for all HTTP communication (optional, empty string means no proxy). */
+    val proxyUrl: ProxyUrl?,
 ) : PropertyNameAware {
     override val propertyName: String
         get() = PROPERTY_NAME
@@ -550,6 +553,16 @@ internal value class Host(val fqdn: String) : PropertyNameAware {
 //
 // END - Value classes for Endpoint properties
 //
+
+@JvmInline
+internal value class ProxyUrl(val url: String) : PropertyNameAware {
+    override val propertyName: String
+        get() = PROPERTY_NAME
+
+    companion object {
+        const val PROPERTY_NAME = "proxy-url"
+    }
+}
 
 internal fun List<Connector>.getConnectorForSourceFile(file: Path): Connector =
     this.first { it.sourceFolder == file.parent || it.getAllSourceDocTypeFolders().contains(file.parent) }

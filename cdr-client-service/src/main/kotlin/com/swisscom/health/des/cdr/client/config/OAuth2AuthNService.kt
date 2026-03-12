@@ -33,6 +33,7 @@ private val logger = KotlinLogging.logger {}
 internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
     private val config: CdrClientConfig,
     private val retryIoErrors: RetryTemplate,
+    private val proxyConfiguration: ProxyConfiguration,
     @Suppress("SpringJavaInjectionPointsAutowiringInspection")
     private val clock: Clock = Clock.System,
 ) {
@@ -113,12 +114,19 @@ internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
 
         val authNResponse: AuthNResponse =
             runCatching {
+                val httpRequest = request.toHTTPRequest()
+
+                if (proxyConfiguration is ProxyConfiguration.Enabled) {
+                    httpRequest.proxy = proxyConfiguration.proxy
+                    logger.debug { "OAuth2 token request will use proxy: ${proxyConfiguration.host}:${proxyConfiguration.port}" }
+                }
+
                 if (shouldRetry) {
                     retryIoErrors.execute<HTTPResponse, Throwable> { _ ->
-                        request.toHTTPRequest().send()
+                        httpRequest.send()
                     }.run { TokenResponse.parse(this) }
                 } else {
-                    request.toHTTPRequest().send().run { TokenResponse.parse(this) }
+                    httpRequest.send().run { TokenResponse.parse(this) }
                 }
             }.fold(
                 onSuccess = { httpResponse: TokenResponse ->

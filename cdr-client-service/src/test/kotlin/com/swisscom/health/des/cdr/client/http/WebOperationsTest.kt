@@ -17,6 +17,7 @@ import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.IdpCredentials
 import com.swisscom.health.des.cdr.client.config.LastCredentialRenewalTime
 import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService
+import com.swisscom.health.des.cdr.client.config.ProxyUrl
 import com.swisscom.health.des.cdr.client.config.RenewCredential
 import com.swisscom.health.des.cdr.client.config.Scope
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
@@ -421,7 +422,8 @@ internal class WebOperationsTest {
             ),
             fileBusyTestInterval = Duration.ofSeconds(1L),
             fileBusyTestTimeout = Duration.ofSeconds(1L),
-            fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY)
+            fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
+            proxyUrl = ProxyUrl(EMPTY_STRING)
         )
     }
 }

@@ -18,6 +18,7 @@ import com.swisscom.health.des.cdr.client.config.FileSynchronization
 import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.IdpCredentials
 import com.swisscom.health.des.cdr.client.config.LastCredentialRenewalTime
+import com.swisscom.health.des.cdr.client.config.ProxyUrl
 import com.swisscom.health.des.cdr.client.config.RenewCredential
 import com.swisscom.health.des.cdr.client.config.Scope
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
@@ -122,7 +123,8 @@ class ConfigurationWriterTest {
             ),
             fileBusyTestInterval = Duration.ofSeconds(1L),
             fileBusyTestTimeout = Duration.ofSeconds(1L),
-            fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY)
+            fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
+            proxyUrl = ProxyUrl("")
         )
 
         every { configValidationService.validateAllConfigurationItems(any()) } returns ValidationResult.Success
@@ -160,6 +162,7 @@ class ConfigurationWriterTest {
         every { propSource.getOrigin("client.file-busy-test-strategy") } returns propOrigin
         every { propSource.getOrigin("client.credential-api.host") } returns propOrigin
         every { propSource.getOrigin("client.cdr-api.host") } returns propOrigin
+        every { propSource.getOrigin("client.proxy-url") } returns propOrigin
         val propertySources = MutablePropertySources().apply {
             addLast(propSource)
         }
@@ -189,6 +192,7 @@ class ConfigurationWriterTest {
         every { propSource.getOrigin("client.customer[0].connector-id") } returns propOrigin
         every { propSource.getOrigin("client.credential-api.host") } returns propOrigin
         every { propSource.getOrigin("client.cdr-api.host") } returns propOrigin
+        every { propSource.getOrigin("client.proxy-url") } returns propOrigin
         val propertySources = MutablePropertySources().apply {
             addLast(propSource)
         }
@@ -221,6 +225,7 @@ class ConfigurationWriterTest {
         every { propSource.getOrigin("client.file-busy-test-strategy") } returns propOrigin
         every { propSource.getOrigin("client.credential-api.host") } returns propOrigin
         every { propSource.getOrigin("client.cdr-api.host") } returns propOrigin
+        every { propSource.getOrigin("client.proxy-url") } returns propOrigin
         val propertySources = MutablePropertySources().apply {
             addLast(propSource)
         }
@@ -247,6 +252,8 @@ class ConfigurationWriterTest {
         val propSource2 = mockk<OriginTrackedMapPropertySource>()
         every { propSource1.getOrigin("client.local-folder") } returns propOrigin1
         every { propSource2.getOrigin("client.local-folder") } returns propOrigin2
+        every { propSource1.getOrigin("client.proxy-url") } returns null
+        every { propSource2.getOrigin("client.proxy-url") } returns null
         val propertySources = MutablePropertySources().apply {
             addLast(propSource1)
             addLast(propSource2)
@@ -283,6 +290,7 @@ class ConfigurationWriterTest {
         every { propSource.getOrigin("client.file-busy-test-strategy") } returns null
         every { propSource.getOrigin("client.credential-api.host") } returns null
         every { propSource.getOrigin("client.cdr-api.host") } returns null
+        every { propSource.getOrigin("client.proxy-url") } returns null
         val propertySources = MutablePropertySources().apply {
             addLast(propSource)
         }
@@ -337,6 +345,104 @@ class ConfigurationWriterTest {
         assertEquals(DTOs.ValidationMessageKey.NO_CONNECTOR_CONFIGURED, result.errors[DomainObjects.ConfigurationItem.CONNECTOR.name])
         assertEquals(DTOs.ValidationMessageKey.VALUE_IS_BLANK, result.errors["${DomainObjects.ConfigurationItem.CONNECTOR_ID.name} - $connectorId"])
         assertEquals(DTOs.ValidationMessageKey.NOT_A_DIRECTORY, result.errors["testPath"])
+    }
+
+    @Test
+    fun `changing client proxy-url is applied and persisted`() {
+        // Prepare a temp YAML config file with initial proxy-url
+        val configFile = tempConfigDir.resolve("proxy_url_test.yaml").apply {
+            createFile()
+            writeText(
+                """
+                client:
+                  proxy-url: ""
+                  file-synchronization-enabled: true
+                """.trimIndent()
+            )
+        }
+        val propOrigin = mockk<TextResourceOrigin>()
+        val fileSystemResource = FileSystemResource(configFile)
+        every { propOrigin.resource } returns fileSystemResource
+        val propSource = mockk<OriginTrackedMapPropertySource>()
+        every { propSource.getOrigin("client.file-synchronization-enabled") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.renew-credential") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.client-secret") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.tenant-id") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.client-id") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.last-credential-renewal-time") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.scope") } returns propOrigin
+        every { propSource.getOrigin("client.customer[0].connector-id") } returns propOrigin
+        every { propSource.getOrigin("client.local-folder") } returns propOrigin
+        every { propSource.getOrigin("client.file-busy-test-strategy") } returns propOrigin
+        every { propSource.getOrigin("client.credential-api.host") } returns propOrigin
+        every { propSource.getOrigin("client.cdr-api.host") } returns propOrigin
+        every { propSource.getOrigin("client.proxy-url") } returns propOrigin
+        val propertySources = MutablePropertySources().apply { addLast(propSource) }
+        every { applicationContext.environment.propertySources } returns propertySources
+
+        // Change the proxy-url
+        val newProxyUrl = "http://proxy.example.com:8080"
+        val updatedConfig = config.copy(proxyUrl = ProxyUrl(newProxyUrl))
+        val result = configurationWriter.updateClientServiceConfiguration(updatedConfig)
+
+        assertInstanceOf<ConfigurationWriter.UpdateResult.Success>(result) { "Expected Success, but got $result" }
+
+        // Verify the YAML file was updated
+        val yaml = YAMLMapper().readTree(configFile.inputStream())
+        val writtenProxyUrl = yaml.get("client").get("proxy-url").asText()
+        assertEquals(newProxyUrl, writtenProxyUrl)
+    }
+
+    @Test
+    fun `proxy-url can be added to config file that does not initially have it using fallback`() {
+        // Prepare a temp YAML config file WITHOUT proxy-url (simulating old client config)
+        val configFile = tempConfigDir.resolve("old_client_config.yaml").apply {
+            createFile()
+            writeText(
+                """
+                client:
+                  local-folder: /tmp
+                  file-synchronization-enabled: true
+                """.trimIndent()
+            )
+        }
+        val propOrigin = mockk<TextResourceOrigin>()
+        val fileSystemResource = FileSystemResource(configFile)
+        every { propOrigin.resource } returns fileSystemResource
+        val propSource = mockk<OriginTrackedMapPropertySource>()
+        // proxy-url has NO origin (not in the file) - will use fallback
+        every { propSource.getOrigin("client.proxy-url") } returns null
+        // All other properties either have origin or will use fallback
+        every { propSource.getOrigin("client.local-folder") } returns propOrigin
+        every { propSource.getOrigin("client.file-synchronization-enabled") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.renew-credential") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.client-secret") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.tenant-id") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.client-id") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.last-credential-renewal-time") } returns propOrigin
+        every { propSource.getOrigin("client.idp-credentials.scope") } returns propOrigin
+        every { propSource.getOrigin("client.customer[0].connector-id") } returns propOrigin
+        every { propSource.getOrigin("client.file-busy-test-strategy") } returns propOrigin
+        every { propSource.getOrigin("client.credential-api.host") } returns propOrigin
+        every { propSource.getOrigin("client.cdr-api.host") } returns propOrigin
+        val propertySources = MutablePropertySources().apply { addLast(propSource) }
+        every { applicationContext.environment.propertySources } returns propertySources
+
+        // Change the proxy-url (setting it for the first time)
+        val newProxyUrl = "http://proxy.example.com:8080"
+        val updatedConfig = config.copy(proxyUrl = ProxyUrl(newProxyUrl))
+        val result = configurationWriter.updateClientServiceConfiguration(updatedConfig)
+
+        assertInstanceOf<ConfigurationWriter.UpdateResult.Success>(result) { "Expected Success, but got $result" }
+
+        // Verify the YAML file was updated with the new proxy-url property
+        val yaml = YAMLMapper().readTree(configFile.inputStream())
+        val writtenProxyUrl = yaml.get("client").get("proxy-url")?.asText()
+        assertEquals(newProxyUrl, writtenProxyUrl, "proxy-url should have been added to the config file")
+
+        // Verify other properties are unchanged
+        assertEquals("/tmp", yaml.get("client").get("local-folder").asText())
+        assertEquals(true, yaml.get("client").get("file-synchronization-enabled").booleanValue())
     }
 
     companion object {

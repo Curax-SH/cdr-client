@@ -294,7 +294,16 @@ internal class ConfigurationWriter(
                         is NamedConfigurationItem.SinglePath -> currentConfigItem
                         is NamedConfigurationItem.MultiPath -> currentConfigItem.singlePathItem
                     }
-                configItemToUpdate.toUpdatableConfigurationItem(getPropertySources(propertyPathString))
+
+                // Try to get property sources for this property
+                val propertySources = getPropertySources(propertyPathString)
+
+                // If no sources found, use fallback location
+                val finalPropertySources = propertySources.ifEmpty {
+                    getFallbackPropertySource(propertyPathString)
+                }
+
+                configItemToUpdate.toUpdatableConfigurationItem(finalPropertySources)
                     .also {
                         when (it) {
                             is UpdatableConfigurationItem.UnknownSource ->
@@ -355,6 +364,32 @@ internal class ConfigurationWriter(
         }.getOrThrow()
 
         return origin
+    }
+
+    /**
+     * Provides a fallback property source for properties that don't have an origin in the configuration.
+     * This is used for new configuration properties that were added after deployment to existing clients.
+     *
+     * The fallback uses the same file where `client.local-folder` is defined, as that property is always
+     * present and writable in customer configuration files.
+     *
+     * @param propertyPath the property path that has no origin
+     * @return a list containing the writable resource of client.local-folder, or empty list if not found
+     */
+    private fun getFallbackPropertySource(propertyPath: String): List<WritableResource> {
+        logger.info { "No origin found for property '$propertyPath', using fallback to '$FALLBACK_PROPERTY_PATH' location" }
+
+        return runCatching {
+            // Use client.local-folder as the fallback property since it's always present in customer configs
+            findPropertyOrigin(FALLBACK_PROPERTY_PATH)
+        }.mapCatching { origins: Set<Origin> ->
+            origins.mapNotNull { origin -> origin.fileBackedResource }
+        }.mapCatching { resources: List<Resource> ->
+            resources.mapNotNull { resource -> resource.writeableResource }
+        }.getOrElse { exception ->
+            logger.warn(exception) { "Failed to get fallback property source for '$propertyPath'" }
+            emptyList()
+        }
     }
 
     /**
@@ -610,6 +645,10 @@ internal class ConfigurationWriter(
             override val currentValue: Any,
             override val newValue: Any,
         ) : UpdatableConfigurationItem
+    }
+
+    companion object {
+        private const val FALLBACK_PROPERTY_PATH = "client.local-folder"
     }
 
 }

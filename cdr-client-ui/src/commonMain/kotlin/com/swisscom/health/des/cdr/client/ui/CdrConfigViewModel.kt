@@ -170,6 +170,22 @@ internal class CdrConfigViewModel(
         }
     }
 
+    /**
+     * Sets the proxy URL in the client service configuration.
+     *
+     * @param proxyUrl The proxy URL to use for all communication (empty string for no proxy).
+     */
+    fun setProxyUrl(proxyUrl: String) {
+        logger.debug { "setProxyUrl: '$proxyUrl'" }
+        _uiState.update {
+            it.copy(
+                clientServiceConfig = it.clientServiceConfig.copy(
+                    proxyUrl = proxyUrl
+                )
+            )
+        }
+    }
+
     fun setIdpCredentialsScope(scope: String) {
         logger.debug { "setIdpCredentialsScope" }
         _uiState.update {

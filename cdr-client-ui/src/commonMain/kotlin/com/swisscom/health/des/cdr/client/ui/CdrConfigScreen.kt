@@ -42,8 +42,6 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.S
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_apply
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_cdr_api_host
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_cdr_api_host_placeholder
-import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_file_busy_strategy
-import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_file_busy_strategy_placeholder
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_service_status
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_close
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_enable_client_service
@@ -160,22 +158,6 @@ internal fun CdrConfigScreen(
 
             Divider(modifier = modifier)
 
-            // File busy test strategy
-            DropDownList(
-                name = DomainObjects.ConfigurationItem.FILE_BUSY_TEST_STRATEGY,
-                modifier = modifier.padding(8.dp).fillMaxWidth(),
-                initiallyExpanded = false,
-                options = { DTOs.CdrClientConfig.FileBusyTestStrategy.entries.filter { it != DTOs.CdrClientConfig.FileBusyTestStrategy.ALWAYS_BUSY } },
-                label = { Text(text = stringResource(Res.string.label_client_file_busy_strategy)) },
-                placeHolder = { Text(text = stringResource(Res.string.label_client_file_busy_strategy_placeholder)) },
-                value = uiState.clientServiceConfig.fileBusyTestStrategy.toString(),
-                onValueChange = { if (canEdit) viewModel.setFileBusyTestStrategy(it) },
-                validatable = { DTOs.ValidationResult.Success },
-                enabled = canEdit,
-            )
-
-            Divider(modifier = modifier)
-
             ConnectorList(
                 modifier = modifier,
                 remoteViewValidations = remoteViewValidations,
@@ -195,6 +177,17 @@ internal fun CdrConfigScreen(
                 remoteViewValidations = remoteViewValidations,
                 canEdit = canEdit,
                 initialConfigLoaded = initialConfigLoaded,
+            )
+
+            Divider(modifier = modifier)
+
+            // Advanced settings
+            AdvancedSettingsGroup(
+                modifier = modifier,
+                viewModel = viewModel,
+                uiState = uiState,
+                remoteViewValidations = remoteViewValidations,
+                canEdit = canEdit,
             )
         }
 

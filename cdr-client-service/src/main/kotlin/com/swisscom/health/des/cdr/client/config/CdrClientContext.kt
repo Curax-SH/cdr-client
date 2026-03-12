@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.retry.support.RetryTemplate
 import java.io.IOException
+import java.net.URI
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -34,6 +35,54 @@ private val logger = KotlinLogging.logger {}
 internal class CdrClientContext {
 
     /**
+     * Creates a proxy configuration bean that will be used by both OkHttp and OAuth2 clients.
+     */
+    @Bean
+    fun proxyConfiguration(config: CdrClientConfig): ProxyConfiguration = when {
+        config.proxyUrl == null -> ProxyConfiguration.Disabled.also { logger.info { "No proxy URL configured, proceeding without HTTP proxy" } }
+        !config.proxyUrl.url.startsWith("http://") && !config.proxyUrl.url.startsWith("https://") ->
+            ProxyConfiguration.Disabled.also { logger.error { "Invalid proxy URL '${config.proxyUrl.url}': must start with http:// or https://" } }
+
+        else -> try {
+            val proxyUri = URI(config.proxyUrl.url)
+
+            // Validate that we have a host and port
+            if (proxyUri.host == null) {
+                logger.error { "Invalid proxy URL '${config.proxyUrl.url}': missing host" }
+                ProxyConfiguration.Disabled
+            } else {
+                // Use appropriate default port based on scheme
+                val port = getProxyPort(proxyUri)
+
+                ProxyConfiguration.Enabled(
+                    proxy = java.net.Proxy(
+                        java.net.Proxy.Type.HTTP,
+                        java.net.InetSocketAddress(proxyUri.host, port)
+                    ),
+                    host = proxyUri.host,
+                    port = port
+                ).also { logger.info { "Configured HTTP proxy: '${config.proxyUrl.url}'" } }
+            }
+        } catch (e: java.net.URISyntaxException) {
+            logger.error(e) { "Invalid proxy URL syntax: '${config.proxyUrl.url}'" }
+            ProxyConfiguration.Disabled
+        } catch (e: IllegalArgumentException) {
+            logger.error(e) { "Failed to configure proxy with URL '${config.proxyUrl.url}'" }
+            ProxyConfiguration.Disabled
+        }
+    }
+
+    private fun getProxyPort(proxyUri: URI): Int = when {
+        proxyUri.port != UNDEFINED_PORT -> proxyUri.port
+        else -> when (proxyUri.scheme?.lowercase()) {
+            "https" -> DEFAULT_HTTPS_PORT
+            "http" -> DEFAULT_HTTP_PORT
+            // should never happen, as the calling function already validated the scheme, but we need to handle it to satisfy the compiler
+            else -> throw IllegalArgumentException("Unsupported proxy URI scheme: '${proxyUri.scheme}'")
+        }
+    }
+
+    /**
      * Creates and returns an instance of the OkHttpClient.
      *
      * @param builder The OkHttpClient.Builder used to build the client.
@@ -44,10 +93,18 @@ internal class CdrClientContext {
         builder: OkHttpClient.Builder,
         oAuth2AuthNService: OAuth2AuthNService,
         @Value($$"${client.connection-timeout-ms}") timeout: Long,
-        @Value($$"${client.read-timeout-ms}") readTimeout: Long
+        @Value($$"${client.read-timeout-ms}") readTimeout: Long,
+        proxyConfiguration: ProxyConfiguration
     ): OkHttpClient =
         builder
             .connectTimeout(timeout, TimeUnit.MILLISECONDS).readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+            .apply {
+                // Configure proxy if enabled
+                if (proxyConfiguration is ProxyConfiguration.Enabled) {
+                    proxy(proxyConfiguration.proxy)
+                    logger.info { "Configured OkHttp with HTTP proxy: ${proxyConfiguration.host}:${proxyConfiguration.port}" }
+                }
+            }
             .addInterceptor { chain ->
                 oAuth2AuthNService.getAccessToken()
                     .let { authNResponse ->
@@ -184,6 +241,26 @@ internal class CdrClientContext {
     fun defaultBusyFileTester(): FileBusyTester =
         FileBusyTester.NeverBusy.also { logger.warn { "No file-busy-test strategy defined, defaulting to 'NEVER_BUSY'" } }
 
+
+    companion object {
+        private const val UNDEFINED_PORT = -1
+        private const val DEFAULT_HTTP_PORT = 80
+        private const val DEFAULT_HTTPS_PORT = 443
+    }
+}
+
+
+/**
+ * Proxy configuration for HTTP clients.
+ */
+internal sealed interface ProxyConfiguration {
+    object Disabled : ProxyConfiguration
+
+    data class Enabled(
+        val proxy: java.net.Proxy,
+        val host: String,
+        val port: Int
+    ) : ProxyConfiguration
 }
 
 internal class HttpServerErrorException(message: String, val statusCode: Int, val responseBody: String) : RuntimeException(message, null, false, false) {

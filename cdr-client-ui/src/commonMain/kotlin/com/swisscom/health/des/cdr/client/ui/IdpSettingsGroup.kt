@@ -21,9 +21,6 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.l
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_id_placeholder
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret_placeholder
-import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret_renewal
-import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret_renewal_subtitle
-import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret_renewal_timestamp
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_tenant_id
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_tenant_id_placeholder
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_validate
@@ -112,25 +109,6 @@ internal fun IdpSettingsGroup(
             // Validate IdP settings
             CheckButton(enabled = canEdit, onClick = viewModel::checkIdpCredentials)
             Spacer(modifier.padding(bottom = 16.dp))
-
-            // Client secret renewal
-            OnOffSwitch(
-                name = DomainObjects.ConfigurationItem.IDP_CLIENT_SECRET_RENWAL,
-                modifier = modifier.padding(bottom = 16.dp),
-                title = stringResource(Res.string.label_client_idp_settings_client_secret_renewal),
-                subtitle = stringResource(Res.string.label_client_idp_settings_client_secret_renewal_subtitle),
-                checked = uiState.clientServiceConfig.idpCredentials.renewCredential,
-                onValueChange = { if (canEdit) viewModel.setIdpRenewClientSecret(it) },
-                enabled = canEdit,
-            )
-
-            // Last credential renewal time
-            DisabledTextField(
-                name = DomainObjects.ConfigurationItem.IDP_CLIENT_SECRET_RENWAL_TIME,
-                modifier = modifier.fillMaxWidth(),
-                label = { Text(text = stringResource(Res.string.label_client_idp_settings_client_secret_renewal_timestamp)) },
-                value = uiState.clientServiceConfig.idpCredentials.lastCredentialRenewalTime.toString(),
-            )
 
             logger.trace { "IdpSettingsGroup has been (re-)composed; uiState: '$uiState'" }
         }

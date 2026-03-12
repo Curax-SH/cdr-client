@@ -1,5 +1,6 @@
 package com.swisscom.health.des.cdr.client.handler
 
+import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DomainObjects
 import com.swisscom.health.des.cdr.client.config.CdrApi
@@ -15,6 +16,7 @@ import com.swisscom.health.des.cdr.client.config.FileSynchronization
 import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.IdpCredentials
 import com.swisscom.health.des.cdr.client.config.LastCredentialRenewalTime.Companion.BEGINNING_OF_TIME
+import com.swisscom.health.des.cdr.client.config.ProxyUrl
 import com.swisscom.health.des.cdr.client.config.RenewCredential
 import com.swisscom.health.des.cdr.client.config.Scope
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
@@ -614,6 +616,7 @@ internal class ConfigValidationServiceTest {
                 maxDelay = Duration.ofSeconds(5),
                 multiplier = 2.0,
             ),
+            proxyUrl = ProxyUrl(EMPTY_STRING),
         )
 
     private fun blueSkyConnectors() = listOf(

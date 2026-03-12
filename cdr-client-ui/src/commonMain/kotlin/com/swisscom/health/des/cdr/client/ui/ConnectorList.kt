@@ -28,6 +28,7 @@ import com.swisscom.health.des.cdr.client.common.DomainObjects
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.Res
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.add_circle_24dp_000000_FILL0_wght400_GRAD0_opsz24
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.delete_24dp_000000_FILL0_wght400_GRAD0_opsz24
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_advanced_settings
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_connector_archive_dir
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_connector_archive_dir_placeholder
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_connector_base_source_dir
@@ -228,21 +229,6 @@ private fun ConnectorSettingsGroup(
             canEdit = canEdit,
         )
 
-        // Document-type-specific target directories
-        for (doctype in DTOs.CdrClientConfig.DocumentType.entries.filter { it != DTOs.CdrClientConfig.DocumentType.UNDEFINED }) {
-            val docTypeFolder: String? = connector.docTypeFolders[doctype]?.targetFolder
-            ValidatedDocTypeTargetDir(
-                modifier = modifier.fillMaxWidth(),
-                remoteViewValidations = remoteViewValidations,
-                viewModel = viewModel,
-                clientConfig = uiState.clientServiceConfig,
-                doctype = doctype,
-                directory = docTypeFolder,
-                connector = connector,
-                canEdit = canEdit,
-            )
-        }
-
         //
         // END - Target directories
         //
@@ -262,24 +248,50 @@ private fun ConnectorSettingsGroup(
             canEdit = canEdit,
         )
 
-        // Document-type-specific source directories
-        for (doctype in DTOs.CdrClientConfig.DocumentType.entries.filter { it != DTOs.CdrClientConfig.DocumentType.UNDEFINED }) {
-            val docTypeFolder: String? = connector.docTypeFolders[doctype]?.sourceFolder
-            ValidatedDocTypeSourceDir(
-                modifier = modifier.fillMaxWidth(),
-                remoteViewValidations = remoteViewValidations,
-                viewModel = viewModel,
-                clientConfig = uiState.clientServiceConfig,
-                doctype = doctype,
-                directory = docTypeFolder,
-                connector = connector,
-                canEdit = canEdit,
-            )
-        }
-
         //
         // END - Source directories
         //
+
+        // Advanced Settings - Document-type-specific directories (collapsed by default)
+        CollapsibleGroup(
+            modifier = modifier,
+            title = stringResource(Res.string.label_advanced_settings),
+            initiallyExpanded = false,
+        ) { _ ->
+            // Document-type-specific target directories
+            NamedSectionDivider(text = stringResource(Res.string.label_client_connector_download_dirs))
+
+            for (doctype in DTOs.CdrClientConfig.DocumentType.entries.filter { it != DTOs.CdrClientConfig.DocumentType.UNDEFINED }) {
+                val docTypeFolder: String? = connector.docTypeFolders[doctype]?.targetFolder
+                ValidatedDocTypeTargetDir(
+                    modifier = modifier.fillMaxWidth(),
+                    remoteViewValidations = remoteViewValidations,
+                    viewModel = viewModel,
+                    clientConfig = uiState.clientServiceConfig,
+                    doctype = doctype,
+                    directory = docTypeFolder,
+                    connector = connector,
+                    canEdit = canEdit,
+                )
+            }
+
+            // Document-type-specific source directories
+            NamedSectionDivider(text = stringResource(Res.string.label_client_connector_upload_dirs))
+
+            for (doctype in DTOs.CdrClientConfig.DocumentType.entries.filter { it != DTOs.CdrClientConfig.DocumentType.UNDEFINED }) {
+                val docTypeFolder: String? = connector.docTypeFolders[doctype]?.sourceFolder
+                ValidatedDocTypeSourceDir(
+                    modifier = modifier.fillMaxWidth(),
+                    remoteViewValidations = remoteViewValidations,
+                    viewModel = viewModel,
+                    clientConfig = uiState.clientServiceConfig,
+                    doctype = doctype,
+                    directory = docTypeFolder,
+                    connector = connector,
+                    canEdit = canEdit,
+                )
+            }
+        }
     }
 }
 

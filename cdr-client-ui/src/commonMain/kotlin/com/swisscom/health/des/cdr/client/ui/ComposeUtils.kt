@@ -63,6 +63,8 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.e
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_overlaps_with_download_dir
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_overlaps_with_other_upload_dir
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_overlaps_with_upload_dir
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_proxy_url_invalid_format
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_proxy_url_must_start_with_http_or_https
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_test_timeout_too_long
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_value_is_mandatory
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -111,6 +113,8 @@ internal val DTOs.ValidationMessageKey.stringResource: StringResource
             DTOs.ValidationMessageKey.ERROR_AS_NON_ERROR_FOLDER_NAME_USED -> Res.string.error_folder_name_used
             DTOs.ValidationMessageKey.ERROR_DIR_OVERLAPS_NON_ERROR_DIR -> Res.string.error_folder_overlaps_non_error
             DTOs.ValidationMessageKey.DIRECTORY_NEEDS_ABSOLUTE_PATH -> Res.string.error_folder_needs_absolute_path_error
+            DTOs.ValidationMessageKey.PROXY_URL_MUST_START_WITH_HTTP_OR_HTTPS -> Res.string.error_proxy_url_must_start_with_http_or_https
+            DTOs.ValidationMessageKey.PROXY_URL_INVALID_FORMAT -> Res.string.error_proxy_url_invalid_format
         }
 
 @Composable

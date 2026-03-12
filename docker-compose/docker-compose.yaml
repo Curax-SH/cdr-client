@@ -46,6 +46,23 @@ services:
       start_period: 120s
       timeout: 10s
 
+  output-server:
+    image: local.nginx.outputserver
+    container_name: cdr-client-conveyor-result-output-server
+    build: ./output-server
+    ports:
+      - "3000:80"
+    volumes:
+      - ${PWD}/../output:/usr/share/nginx/html:ro
+    environment:
+      - TZ=Europe/Zurich
+    healthcheck:
+      test: curl --fail http://localhost/health || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 5s
+      timeout: 5s
+
 networks:
   default:
     name: cdr_client_net

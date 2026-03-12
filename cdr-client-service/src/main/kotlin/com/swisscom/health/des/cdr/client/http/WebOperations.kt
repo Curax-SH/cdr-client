@@ -1,6 +1,7 @@
 package com.swisscom.health.des.cdr.client.http
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.Constants.SHUTDOWN_DELAY
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.CREDENTIAL_VALIDATION_FAILED
@@ -199,6 +200,15 @@ internal class WebOperations(
                 }
             }
             logger.trace { "validating credentials" }
+            logger.info {
+                val proxy = config.proxyUrl
+                if (proxy != null && proxy.url != EMPTY_STRING) {
+                    "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' " +
+                            "with proxy config: ${proxy.url}"
+                } else {
+                    "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' (no proxy configured)"
+                }
+            }
 
             authService.getNewAccessToken(idpCredentials.toCdrClientConfig(), URI(correctedIdpEndpoint).toURL(), false)
         }
@@ -214,7 +224,7 @@ internal class WebOperations(
                     validationResult += credentialValidationFailure
                 }
             }
-            logger.debug { "Credentials validation completed with result: '$validationResult'" }
+            logger.info { "Credentials validation completed with result: '$validationResult'" }
             ResponseEntity.ok(validationResult)
         },
         onFailure = { e ->

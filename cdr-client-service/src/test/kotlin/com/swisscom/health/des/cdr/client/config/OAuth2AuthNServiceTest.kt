@@ -65,7 +65,7 @@ class OAuth2AuthNServiceTest {
         )
         every { config.idpEndpoint } returns URI("http://${idpMock.hostName}:${idpMock.port}/${config.idpCredentials.tenantId.id}/oauth2/v2.0/token").toURL()
 
-        authNService = OAuth2AuthNService(config = config, retryIoErrors = retryIoExceptionsTwice)
+        authNService = OAuth2AuthNService(config = config, retryIoErrors = retryIoExceptionsTwice, proxyConfiguration = ProxyConfiguration.Disabled)
     }
 
     @Test
@@ -129,7 +129,12 @@ class OAuth2AuthNServiceTest {
 
         assertEquals(OAuth2AuthNService.AuthNState.UNKNOWN, authNService.currentAuthNStateNonBlocking())
 
-        authNService = OAuth2AuthNService(config = config, clock = constantTimeClock, retryIoErrors = retryIoExceptionsTwice)
+        authNService = OAuth2AuthNService(
+            config = config,
+            clock = constantTimeClock,
+            retryIoErrors = retryIoExceptionsTwice,
+            proxyConfiguration = ProxyConfiguration.Disabled
+        )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
         val authNResponse2: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
@@ -168,7 +173,12 @@ class OAuth2AuthNServiceTest {
 
         assertEquals(OAuth2AuthNService.AuthNState.UNKNOWN, authNService.currentAuthNStateNonBlocking())
 
-        authNService = OAuth2AuthNService(config = config, clock = constantTimeClock, retryIoErrors = retryIoExceptionsTwice)
+        authNService = OAuth2AuthNService(
+            config = config,
+            clock = constantTimeClock,
+            retryIoErrors = retryIoExceptionsTwice,
+            proxyConfiguration = ProxyConfiguration.Disabled
+        )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
         val authNResponse2: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
