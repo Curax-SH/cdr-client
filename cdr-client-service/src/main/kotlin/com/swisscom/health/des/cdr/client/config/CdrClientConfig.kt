@@ -3,6 +3,7 @@ package com.swisscom.health.des.cdr.client.config
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
+import com.swisscom.health.des.cdr.client.common.Constants.ERROR_DIR_NAME
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig.Mode
 import com.swisscom.health.des.cdr.client.xml.DocumentType
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -17,7 +18,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.io.path.createDirectories
-import kotlin.io.path.isDirectory
 
 
 private val logger = KotlinLogging.logger {}
@@ -152,13 +152,8 @@ internal data class Connector(
     val sourceArchiveEnabled: Boolean = false,
 
     /**
-     * Directory to archive uploaded files to. If you specify a relative path, it will be resolved relative to the source directory.
-     * If you specify an absolute path, the path will be used as is for all archive directories (see [docTypeFolders]).
-     *
-     * Beware: On Linux empty string, `.`, and `./` all resolve to the current working directory, while `./archive` (and just `archive`) resolve
-     * to `<source_dir>/archive`.
-     *
-     * Default is the system temp directory.
+     * Directory to archive uploaded files to.
+     * Needs to be an absolute path, the path will be used as is for all archive directories (see [docTypeFolders]).
      *
      * @see sourceArchiveEnabled
      * @see getEffectiveSourceArchiveFolder
@@ -167,13 +162,8 @@ internal data class Connector(
     val sourceArchiveFolder: Path? = null,
 
     /**
-     * Directory to move documents to for which the upload has failed. If you specify a relative path, it will be resolved relative
-     * to the source directory. If you specify an absolute path, the path will be used as is for all error directories, such as for all [docTypeFolders].
-     *
-     * Beware: On Linux empty string, `.`, and `./` all resolve to the current working directory, while `./archive` (and just `archive`) resolve
-     * to `<source_dir>/archive`.
-     *
-     * Default is the system temp directory.
+     * Directory to move documents to for which the upload has failed.
+     * Needs to be an absolute path, the path will be used as is for all error directories, such as for all [docTypeFolders].
      *
      * @see getEffectiveSourceErrorFolder
      * @see sourceFolder
@@ -199,45 +189,27 @@ internal data class Connector(
 
     companion object {
         const val PROPERTY_NAME = ""
-
-        @JvmStatic
-        val TEMP_DIR_PATH: Path = Path.of(System.getProperty("java.io.tmpdir"))
     }
 
     /**
-     * If [sourceArchiveEnabled] is set to `true` returns the archive directory resolved against the source directory with a subdirectory
-     * for the current date. The directories will be created if they do not exist. If [sourceArchiveEnabled] is `false` returns an
-     * empty path.
+     * If [sourceArchiveEnabled] is set to `true` returns the archive directory with a subdirectory for the current date.
+     * The directory will be created if it does not exist.
+     * If [sourceArchiveEnabled] is `false` returns an empty path.
      *
      * @see sourceArchiveEnabled
      * @see sourceArchiveFolder
-     * @see sourceFolder
      */
     @JsonIgnore
-    fun getEffectiveSourceArchiveFolder(path: Path): Path? =
+    fun getEffectiveSourceArchiveFolder(): Path? =
         if (sourceArchiveEnabled) {
-            if (path.isDirectory()) {
-                path
-            } else {
-                path.parent
-            }.resolve((sourceArchiveFolder ?: TEMP_DIR_PATH).resolve(getDateNow()))
-                .also { createDirectoryIfMissing(it) }
+            createDirectoryIfMissing(when (sourceArchiveFolder) {
+                null -> sourceFolder.resolve("archive")
+                sourceFolder -> sourceFolder.resolve("archive")
+                else -> sourceArchiveFolder
+            }.resolve(getDateNow()))
         } else {
             null
         }
-
-    /**
-     * Convenience property to get the connector archive directory that is used in all cases where no message type related directories are defined.
-     * @see getEffectiveSourceArchiveFolder
-     */
-    val effectiveConnectorSourceArchiveFolder: Path?
-        @JsonIgnore
-        get() =
-            if (sourceArchiveEnabled)
-                sourceFolder.resolve((sourceArchiveFolder ?: TEMP_DIR_PATH).resolve(getDateNow()))
-                    .also { createDirectoryIfMissing(it) }
-            else
-                null
 
     /**
      * Returns all source directories for all document types of this connector. If a [DocTypeFolders.sourceFolder] is not set, the entry is omitted.
@@ -269,35 +241,20 @@ internal data class Connector(
 
     private fun getDateNow(): String = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
 
+
     /**
-     * Returns the error directory resolved against the source directory with a subdirectory for the current date. The directories will be
-     * created if they do not exist.
+     * Returns the effective source error folder path. The directory will be created if it does not exist.
      *
      * @see sourceErrorFolder
      * @see sourceFolder
      */
     @JsonIgnore
-    fun getEffectiveSourceErrorFolder(path: Path): Path =
-        (sourceErrorFolder ?: Path.of(EMPTY_STRING)).let { errorDir ->
-            if (path.isDirectory()) {
-                path
-            } else {
-                path.parent
-            }.resolve(errorDir.resolve(getDateNow()))
-                .also { createDirectoryIfMissing(it) }
-        }
-
-
-    /**
-     * Convenience property to get the connector error directory that is used in all cases where no message type related directories are defined.
-     * @see getEffectiveSourceErrorFolder
-     */
-    val effectiveConnectorSourceErrorFolder: Path
-        @JsonIgnore
-        get() = (sourceErrorFolder ?: Path.of(EMPTY_STRING)).let { errorDir ->
-            sourceFolder.resolve(errorDir.resolve(getDateNow()))
-                .also { createDirectoryIfMissing(it) }
-        }
+    fun getEffectiveSourceErrorFolder(): Path =
+        when (sourceErrorFolder) {
+            null -> sourceFolder.resolve(ERROR_DIR_NAME)
+            sourceFolder -> sourceFolder.resolve(ERROR_DIR_NAME)
+            else -> sourceErrorFolder
+        }.let { createDirectoryIfMissing(it) }
 
     override fun toString(): String {
         return "Connector(connectorId='$connectorId', targetFolder=$targetFolder, sourceFolder=$sourceFolder, " +
@@ -309,23 +266,8 @@ internal data class Connector(
                     EMPTY_STRING
                 } +
                 "contentType=$contentType, uploadArchiveEnabled=$sourceArchiveEnabled, sourceArchiveFolder=$sourceArchiveFolder, " +
-                "effectiveSourceArchiveFolder=${effectiveConnectorSourceArchiveFolder}, " +
-                if (sourceArchiveEnabled && effectiveDocTypeFolders.isNotEmpty())
-                    "additionalEffectiveSourceArchiveFolders=[${
-                        effectiveDocTypeFolders.entries.joinToString("; ") { "${it.key}=${getEffectiveSourceArchiveFolder(it.value.sourceFolder!!)}" }
-                    }], "
-                else {
-                    EMPTY_STRING
-                } +
-                "sourceErrorFolder=$sourceErrorFolder, effectiveSourceErrorFolder=${effectiveConnectorSourceErrorFolder} " +
-                if (effectiveDocTypeFolders.isNotEmpty())
-                    "additionalEffectiveSourceErrorFolders=[${
-                        effectiveDocTypeFolders.entries.filter { it.value.sourceFolder != null }
-                            .joinToString(", ") { "${it.key}=${getEffectiveSourceErrorFolder(it.value.sourceFolder!!)}" }
-                    }], "
-                else {
-                    EMPTY_STRING
-                } +
+                "effectiveSourceArchiveFolder=${getEffectiveSourceArchiveFolder()}, " +
+                "sourceErrorFolder=$sourceErrorFolder, effectiveSourceErrorFolder=${getEffectiveSourceErrorFolder()} " +
                 "mode=$mode)"
     }
 

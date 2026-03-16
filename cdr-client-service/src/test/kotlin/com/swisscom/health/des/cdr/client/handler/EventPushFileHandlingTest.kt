@@ -3,6 +3,8 @@ package com.swisscom.health.des.cdr.client.handler
 import com.mayakapps.kache.ObjectKache
 import com.ninjasquad.springmockk.SpykBean
 import com.swisscom.health.des.cdr.client.AlwaysSameTempDirFactory
+import com.swisscom.health.des.cdr.client.common.Constants.ERROR_DIR_NAME
+import com.swisscom.health.des.cdr.client.common.Constants.RESTART_FILE_EXTENSION
 import com.swisscom.health.des.cdr.client.config.CdrApi
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig
 import com.swisscom.health.des.cdr.client.config.ClientId
@@ -27,6 +29,7 @@ import okhttp3.Headers
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -46,8 +49,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.ExperimentalPathApi
@@ -235,7 +236,7 @@ internal class EventPushFileHandlingTest {
     }
 
     @Test
-    fun `test successfully write two files to API fail with third`() {
+    fun `test successfully write two files to API fail with third rename file`() {
         val mockResponse = MockResponse.Builder()
             .code(HttpStatus.OK.value())
             .headers(Headers.Builder().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).build())
@@ -246,10 +247,9 @@ internal class EventPushFileHandlingTest {
         cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
         cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
         cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value()).body("{\"message\": \"Exception\"}").build())
-        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.BAD_REQUEST.value()).body("{\"message\": \"Exception\"}").build())
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.FORBIDDEN.value()).body("{\"message\": \"Exception\"}").build())
 
         val sourceDir = tmpDir.resolve(sourceDirectory)
-        val errorDir = sourceDir.resolve(LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE))
 
         val payload1 = sourceDir.resolve("dummy.xml.tmp")
         payload1.outputStream().use { it.write("Hello".toByteArray()) }
@@ -265,10 +265,10 @@ internal class EventPushFileHandlingTest {
         Files.move(payload3, payload3.resolveSibling(payload3.nameWithoutExtension))
 
         await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 6 }
-        await().during(100L, TimeUnit.MILLISECONDS).until { errorDir.listDirectoryEntries("*response").size == 1 }
+        await().during(100L, TimeUnit.MILLISECONDS).until { sourceDir.listDirectoryEntries("*$RESTART_FILE_EXTENSION").size == 1 }
 
-        assertEquals(1, errorDir.listDirectoryEntries("*error").size)
-        assertEquals(1, errorDir.listDirectoryEntries("*response").size)
+        assertEquals(1, sourceDir.listDirectoryEntries("*$RESTART_FILE_EXTENSION").size)
+        assertEquals(0, sourceDir.listDirectoryEntries("*xml").size)
 
         // but no additional requests for the error and response file should have been made, i.e. the request count
         // should still be 6 (2 successful and four failed requests)
@@ -276,10 +276,7 @@ internal class EventPushFileHandlingTest {
 
         // ignored files like the error and response files don't get processed and thus are not supposed to be in the processing cache
         await().during(100L, TimeUnit.MILLISECONDS).until({ runBlocking { fileCache.getKeys() } }) { it.isEmpty() }
-
-        // error and response files are written to a subdirectory of the source directory
-        await().during(100L, TimeUnit.MILLISECONDS).until(errorDir::listDirectoryEntries) { it.size == 2 }
-        await().during(100L, TimeUnit.MILLISECONDS).until(sourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
+        await().during(100L, TimeUnit.MILLISECONDS).until(sourceDir::listDirectoryEntries) { it.size == 1  }
     }
 
     @Test
@@ -294,7 +291,7 @@ internal class EventPushFileHandlingTest {
         cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.BAD_REQUEST.value()).body("{\"message\": \"Exception\"}").build())
 
         val sourceDir = tmpDir.resolve(sourceDirectory)
-        val errorDir = sourceDir.resolve(LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE))
+        val errorDir = sourceDir.resolve(ERROR_DIR_NAME)
 
         val payload1 = sourceDir.resolve("dummy.xml.tmp")
         payload1.outputStream().use { it.write("Hello".toByteArray()) }
@@ -312,7 +309,7 @@ internal class EventPushFileHandlingTest {
         await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 3 }
         await().during(100L, TimeUnit.MILLISECONDS).until { errorDir.listDirectoryEntries("*response").size == 1 }
 
-        assertEquals(1, errorDir.listDirectoryEntries("*error").size)
+        assertEquals(1, errorDir.listDirectoryEntries("*xml").size)
         assertEquals(1, errorDir.listDirectoryEntries("*response").size)
 
         // but no additional requests for the error and response file should have been made, i.e. the request count
@@ -324,6 +321,58 @@ internal class EventPushFileHandlingTest {
 
         // error and response files are written to a subdirectory of the source directory
         await().during(100L, TimeUnit.MILLISECONDS).until(errorDir::listDirectoryEntries) { it.size == 2 }
+        await().during(100L, TimeUnit.MILLISECONDS).until(sourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
+    }
+
+    @Test
+    fun `test UUID deduplication when file with three UUIDs fails with 4xx error`() {
+        cdrServiceMock.enqueue(MockResponse.Builder().code(HttpStatus.BAD_REQUEST.value()).body("{\"message\": \"Exception\"}").build())
+
+        val sourceDir = tmpDir.resolve(sourceDirectory)
+        val errorDir = sourceDir.resolve(ERROR_DIR_NAME)
+
+        // Create a file with three UUIDs in the filename
+        val uuid1 = "550e8400-e29b-41d4-a716-446655440001"
+        val uuid2 = "550e8400-e29b-41d4-a716-446655440002"
+        val uuid3 = "550e8400-e29b-41d4-a716-446655440003"
+        val payloadWithThreeUuids = sourceDir.resolve("document_${uuid1}_${uuid2}_${uuid3}.xml.tmp")
+        payloadWithThreeUuids.outputStream().use { it.write("Document content".toByteArray()) }
+
+        assertEquals(1, sourceDir.listDirectoryEntries().size)
+
+        // Rename the file to start processing
+        Files.move(payloadWithThreeUuids, payloadWithThreeUuids.resolveSibling(payloadWithThreeUuids.nameWithoutExtension))
+
+        // Wait for the upload to fail and be moved to error directory
+        await().during(1, TimeUnit.SECONDS).until(cdrServiceMock::requestCount) { it == 1 }
+        await().during(100L, TimeUnit.MILLISECONDS).until { errorDir.listDirectoryEntries("*xml").size == 1 }
+
+        // Verify error file was created with exactly two UUIDs (first preserved, second is new)
+        val errorFiles = errorDir.listDirectoryEntries("*.xml").toList()
+        assertEquals(1, errorFiles.size, "Exactly one error XML file should be created")
+
+        val errorFileName = errorFiles[0].nameWithoutExtension
+        val uuidMatches = RetryUploadFileHandling.uuidPattern.findAll(errorFileName).toList()
+        assertEquals(2, uuidMatches.size, "Error file should contain exactly two UUIDs (first preserved, second replaced)")
+
+        // Verify first UUID is preserved
+        assertEquals(uuid1, uuidMatches[0].value.lowercase(), "First UUID should be preserved")
+
+        // Verify second UUID is different from the original two
+        val secondUuid = uuidMatches[1].value.lowercase()
+        assertNotEqual(uuid2.lowercase(), secondUuid, "Second UUID should be different from original second UUID")
+        assertNotEqual(uuid3.lowercase(), secondUuid, "Second UUID should be different from original third UUID")
+
+        // Verify filename structure is maintained
+        assertTrue(errorFileName.startsWith("document_$uuid1"), "Filename should start with document_ and first UUID")
+        assertTrue(errorFileName.contains("_"), "Filename should have UUID separator")
+
+        // Verify response file was also created
+        val responseFiles = errorDir.listDirectoryEntries("*.response").toList()
+        assertEquals(1, responseFiles.size, "Response file should be created alongside error file")
+        assertEquals(errorFileName, responseFiles[0].nameWithoutExtension, "Response file should have same base name as error file")
+
+        // Source directory should only have the error subdirectory
         await().during(100L, TimeUnit.MILLISECONDS).until(sourceDir::listDirectoryEntries) { it.none { it.isRegularFile() } }
     }
 
@@ -341,6 +390,12 @@ internal class EventPushFileHandlingTest {
         @JvmStatic
         private val isFirstTest: AtomicBoolean = AtomicBoolean(true)
 
+    }
+
+    private fun assertNotEqual(unexpected: String, actual: String, message: String = "") {
+        if (unexpected == actual) {
+            throw AssertionError("$message: expected not equal to <$unexpected> but was equal")
+        }
     }
 
 }

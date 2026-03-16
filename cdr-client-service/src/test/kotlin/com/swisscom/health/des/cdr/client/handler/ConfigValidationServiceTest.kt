@@ -37,7 +37,11 @@ import org.springframework.util.unit.DataSize
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.time.Duration
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.deleteRecursively
 
 @ExtendWith(MockKExtension::class)
 internal class ConfigValidationServiceTest {
@@ -165,14 +169,15 @@ internal class ConfigValidationServiceTest {
             val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
 
             assertInstanceOf<DTOs.ValidationResult.Failure>(validationResult)
-            assertEquals(1, validationResult.validationDetails.size)
+            assertEquals(if (localDir == sourceErrorDir4) 2 else 1, validationResult.validationDetails.size)
             validationResult.validationDetails.first().let { validationDetail ->
                 assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
                 assertEquals(localDir.toString(), validationDetail.path)
                 assertTrue(
                     listOf(
                         DTOs.ValidationMessageKey.LOCAL_DIR_OVERLAPS_WITH_SOURCE_DIRS,
-                        DTOs.ValidationMessageKey.LOCAL_DIR_OVERLAPS_WITH_TARGET_DIRS
+                        DTOs.ValidationMessageKey.LOCAL_DIR_OVERLAPS_WITH_TARGET_DIRS,
+                        DTOs.ValidationMessageKey.ERROR_DIR_OVERLAPS_NON_ERROR_DIR
                     ).contains(validationDetail.messageKey)
                 )
             }
@@ -232,7 +237,7 @@ internal class ConfigValidationServiceTest {
     }
 
     @Test
-    fun `test validation error because source and error or archive directories overlap`() {
+    fun `test validation error because source and archive directories overlap`() {
         val overlappingSourceWithErrorOrArchive = listOf(
             blueSkyConnectors().first().copy(sourceFolder = sourceErrorDir1, sourceErrorFolder = sourceErrorDir1, mode = CdrClientConfig.Mode.PRODUCTION),
             blueSkyConnectors().first().copy(sourceFolder = sourceArchiveDir4, sourceArchiveFolder = sourceArchiveDir4, mode = CdrClientConfig.Mode.TEST)
@@ -242,17 +247,14 @@ internal class ConfigValidationServiceTest {
 
         val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
         assertInstanceOf<DTOs.ValidationResult.Failure>(validationResult)
-        assertEquals(2, validationResult.validationDetails.size)
-        validationResult.validationDetails.first().let { validationDetail ->
-            assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
-            assertEquals(sourceErrorDir1.toString(), validationDetail.path)
-            assertEquals(DTOs.ValidationMessageKey.TARGET_DIR_OVERLAPS_SOURCE_DIRS, validationDetail.messageKey)
-        }
-        validationResult.validationDetails.last().let { validationDetail ->
-            assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
-            assertEquals(sourceArchiveDir4.toString(), validationDetail.path)
-            assertEquals(DTOs.ValidationMessageKey.TARGET_DIR_OVERLAPS_SOURCE_DIRS, validationDetail.messageKey)
-        }
+        assertEquals(1, validationResult.validationDetails.size)
+
+        val detailsByPath = validationResult.validationDetails
+            .filterIsInstance<DTOs.ValidationDetail.PathDetail>()
+            .associateBy { it.path }
+
+        val archiveDetail = requireNotNull(detailsByPath[sourceArchiveDir4.toString()])
+        assertEquals(DTOs.ValidationMessageKey.TARGET_DIR_OVERLAPS_SOURCE_DIRS, archiveDetail.messageKey)
     }
 
     @Test
@@ -299,6 +301,116 @@ internal class ConfigValidationServiceTest {
             assertInstanceOf<DTOs.ValidationDetail.ConnectorDetail>(validationDetail)
             assertEquals(DomainObjects.ConfigurationItem.CONNECTOR_MODE, validationDetail.configItem)
             assertEquals(DTOs.ValidationMessageKey.DUPLICATE_MODE, validationDetail.messageKey)
+        }
+    }
+
+    @Test
+    @Suppress("LongMethod")
+    fun `test validation error because non-error folders end with error name`() {
+        val sourceWithErrorName = sourceFolder1.resolve("error")
+        Files.createDirectories(sourceWithErrorName)
+        val targetWithErrorName = targetFolder1.resolve("error")
+        Files.createDirectories(targetWithErrorName)
+        val archiveWithErrorName = sourceFolder2.resolve("error")
+        Files.createDirectories(archiveWithErrorName)
+        val docTypeSourceWithErrorName = sourceFolder3.resolve("error")
+        Files.createDirectories(docTypeSourceWithErrorName)
+        val docTypeTargetWithErrorName = targetFolder3.resolve("error")
+        Files.createDirectories(docTypeTargetWithErrorName)
+
+        val connectors = listOf(
+            blueSkyConnectors().first().copy(
+                sourceFolder = sourceWithErrorName,
+                mode = CdrClientConfig.Mode.PRODUCTION
+            ),
+            blueSkyConnectors().first().copy(
+                targetFolder = targetWithErrorName,
+                sourceFolder = sourceFolder4,
+                mode = CdrClientConfig.Mode.TEST
+            ),
+            blueSkyConnectors()[3].copy(
+                sourceArchiveEnabled = true,
+                sourceArchiveFolder = archiveWithErrorName,
+                sourceFolder = sourceFolder2
+            ),
+            blueSkyConnectors()[4].copy(
+                sourceFolder = sourceFolder3,
+                docTypeFolders = mapOf(
+                    DocumentType.CONTAINER to Connector.DocTypeFolders(sourceFolder = docTypeSourceWithErrorName)
+                )
+            ),
+            Connector(
+                connectorId = ConnectorId("connectorId5"),
+                targetFolder = targetFolder4,
+                sourceFolder = multiPurposeTempDir,
+                contentType = FORUM_DATENAUSTAUSCH_MEDIA_TYPE.toString(),
+                mode = CdrClientConfig.Mode.TEST,
+                docTypeFolders = mapOf(
+                    DocumentType.INVOICE to Connector.DocTypeFolders(targetFolder = docTypeTargetWithErrorName)
+                )
+            )
+        )
+
+        val cdrClientConfig = createCdrClientConfig(connectors)
+        val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
+
+        assertInstanceOf<DTOs.ValidationResult.Failure>(validationResult)
+        assertTrue(validationResult.validationDetails.size >= 5)
+
+        val errorPaths = validationResult.validationDetails.map {
+            (it as DTOs.ValidationDetail.PathDetail).path
+        }
+        assertTrue(errorPaths.contains(sourceWithErrorName.toString()))
+        assertTrue(errorPaths.contains(targetWithErrorName.toString()))
+        assertTrue(errorPaths.contains(archiveWithErrorName.toString()))
+        assertTrue(errorPaths.contains(docTypeSourceWithErrorName.toString()))
+        assertTrue(errorPaths.contains(docTypeTargetWithErrorName.toString()))
+
+        validationResult.validationDetails.forEach { validationDetail ->
+            assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
+            assertTrue(
+                listOf(
+                    DTOs.ValidationMessageKey.ERROR_AS_NON_ERROR_FOLDER_NAME_USED,
+                    DTOs.ValidationMessageKey.ERROR_DIR_OVERLAPS_NON_ERROR_DIR
+                ).contains(validationDetail.messageKey)
+            )
+        }
+    }
+
+    @Test
+    fun `test validation success when error folders end with error name`() {
+        val errorDirWithErrorName = sourceFolder1.resolve("error")
+        Files.createDirectories(errorDirWithErrorName)
+
+        val connectors = listOf(
+            blueSkyConnectors().first().copy(
+                sourceFolder = sourceFolder1,
+                targetFolder = targetFolder1,
+                sourceErrorFolder = errorDirWithErrorName,
+                mode = CdrClientConfig.Mode.PRODUCTION
+            )
+        )
+
+        val cdrClientConfig = createCdrClientConfig(connectors)
+        val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
+
+        assertEquals(DTOs.ValidationResult.Success, validationResult)
+    }
+
+    @Test
+    fun `test validation error when local folder ends with error name`() {
+        val localWithErrorName = multiPurposeTempDir.resolve("error")
+        Files.createDirectories(localWithErrorName)
+
+        val cdrClientConfig = createCdrClientConfig(blueSkyConnectors(), localWithErrorName)
+        val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(cdrClientConfig.toDto())
+
+        assertInstanceOf<DTOs.ValidationResult.Failure>(validationResult)
+        assertEquals(1, validationResult.validationDetails.size)
+        validationResult.validationDetails.first().let { validationDetail ->
+            assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
+            assertEquals(localWithErrorName.toString(), validationDetail.path)
+            assertEquals(DTOs.ValidationMessageKey.ERROR_AS_NON_ERROR_FOLDER_NAME_USED, validationDetail.messageKey)
         }
     }
 
@@ -417,6 +529,49 @@ internal class ConfigValidationServiceTest {
         assertInstanceOf<DTOs.ValidationDetail.ConfigItemDetail>(validationDetail)
         assertEquals(DomainObjects.ConfigurationItem.FILE_BUSY_TEST_TIMEOUT, validationDetail.configItem)
         assertEquals(DTOs.ValidationMessageKey.FILE_BUSY_TEST_TIMEOUT_TOO_LONG, validationDetail.messageKey)
+    }
+
+    @OptIn(ExperimentalPathApi::class)
+    @Test
+    @Suppress("NestedBlockDepth")
+    fun `test validation fails for non-absolute paths in config folders`() {
+        val dirs = listOf("relative/source", "relative/target", "relative/error", "relative/archive")
+        try {
+            dirs.forEach { Files.createDirectories(Paths.get(it)) }
+            val connector = Connector(
+                connectorId = ConnectorId("test-connector"),
+                sourceFolder = Paths.get("relative/source"),
+                targetFolder = Paths.get("relative/target"),
+                contentType = "application/xml",
+                mode = CdrClientConfig.Mode.TEST,
+                docTypeFolders = emptyMap(),
+                sourceErrorFolder = Paths.get("relative/error"),
+                sourceArchiveFolder = Paths.get("relative/archive"),
+                sourceArchiveEnabled = true
+            )
+            val config = createCdrClientConfig(listOf(connector))
+            val service = ConfigValidationService(config)
+            val result = service.validateAllConfigurationItems(config.toDto())
+            assertInstanceOf<DTOs.ValidationResult.Failure>(result)
+            val details = result.validationDetails.mapNotNull { it as? DTOs.ValidationDetail.PathDetail }
+            val failedPaths = details.map { it.path }
+            assertTrue(failedPaths.contains("relative/source"))
+            assertTrue(failedPaths.contains("relative/target"))
+            assertTrue(failedPaths.contains("relative/error"))
+            assertTrue(failedPaths.contains("relative/archive"))
+            details.forEach { assertEquals(DTOs.ValidationMessageKey.DIRECTORY_NEEDS_ABSOLUTE_PATH, it.messageKey) }
+        } finally {
+            dirs.forEach {
+                val path = Paths.get(it)
+                Files.walk(path).use { walk ->
+                    val containsFiles = walk.anyMatch { Files.isRegularFile(it) }
+                    if (!containsFiles) {
+                        path.deleteRecursively()
+                    }
+                }
+            }
+            Paths.get("relative").deleteIfExists()
+        }
     }
 
     private fun createCdrClientConfig(customers: List<Connector>, defaultLocalFolder: Path = localFolder0): CdrClientConfig =
@@ -551,4 +706,27 @@ internal class ConfigValidationServiceTest {
         val FORUM_DATENAUSTAUSCH_MEDIA_TYPE = MediaType.parseMediaType("application/forumdatenaustausch+xml;charset=UTF-8")
     }
 
+    @Test
+    fun `test validation passes when error directory is same as source folder`() {
+        val tempDir = Files.createTempDirectory("sourceAndErrorDir")
+        try {
+            val connector = Connector(
+                connectorId = ConnectorId("test-connector"),
+                sourceFolder = tempDir,
+                targetFolder = Files.createTempDirectory("targetDir"),
+                contentType = "application/xml",
+                mode = CdrClientConfig.Mode.TEST,
+                docTypeFolders = emptyMap(),
+                sourceErrorFolder = tempDir,
+                sourceArchiveFolder = null,
+                sourceArchiveEnabled = false
+            )
+            val config = createCdrClientConfig(listOf(connector))
+            val service = ConfigValidationService(config)
+            val result = service.validateAllConfigurationItems(config.toDto())
+            assertEquals(DTOs.ValidationResult.Success, result)
+        } finally {
+            Files.deleteIfExists(tempDir)
+        }
+    }
 }

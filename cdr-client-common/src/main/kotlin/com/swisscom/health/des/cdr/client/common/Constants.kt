@@ -9,6 +9,8 @@ object Constants {
     val SHUTDOWN_DELAY: Duration = Duration.ofMillis(SHUTDOWN_DELAY_MILLIS)
 
     const val EMPTY_STRING: String = ""
+    const val ERROR_DIR_NAME: String = "error"
+    const val RESTART_FILE_EXTENSION: String = "clientRestartRequired"
 
     const val CONFIG_CHANGE_EXIT_CODE = 29
     const val UNKNOWN_EXIT_CODE = 31
