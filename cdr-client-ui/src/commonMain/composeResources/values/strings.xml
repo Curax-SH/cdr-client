@@ -11,8 +11,12 @@
     <string name="label_client_status">Client status</string>
     <string name="label_cdr_api_host">curaLINE host</string>
     <string name="label_cdr_api_host_placeholder">Fully qualified domain name of the curaLINE host, e.g. 'cdr.health.swisscom.ch'</string>
-    <string name="label_proxy_url">Proxy URL (optional)</string>
+    <string name="label_proxy_url">Proxy URL</string>
     <string name="label_proxy_url_placeholder">http://proxy.example.com:8080 (leave empty for no proxy)</string>
+    <string name="label_proxy_username">Proxy Username</string>
+    <string name="label_proxy_username_placeholder">Username for proxy authentication (leave empty if not required)</string>
+    <string name="label_proxy_password">Proxy Password</string>
+    <string name="label_proxy_password_placeholder">Password for proxy authentication (leave empty if not required)</string>
     <string name="label_advanced_settings">Advanced Settings</string>
     <string name="label_enable_client_service">Client Service</string>
     <string name="label_enable_client_service_subtitle">Start synchronizing your documents</string>

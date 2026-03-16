@@ -1,7 +1,10 @@
 client:
   file-synchronization-enabled: true
   local-folder: ${java.io.tmpdir}
-  proxy-url: # Optional: http://proxy.example.com:8080 (leave empty for no proxy)
+  proxy-config:
+    url:
+    username:
+    password:
   idp-credentials:
     tenant-id: value-required
     client-id: value-required

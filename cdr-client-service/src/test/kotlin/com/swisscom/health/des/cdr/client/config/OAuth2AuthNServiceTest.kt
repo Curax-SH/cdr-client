@@ -25,6 +25,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.retry.support.RetryTemplate
 import java.io.IOException
+import java.net.Authenticator
 import java.net.URI
 import java.time.Duration
 import java.time.Instant
@@ -48,6 +49,9 @@ class OAuth2AuthNServiceTest {
     @MockK
     private lateinit var config: CdrClientConfig
 
+    @MockK
+    private lateinit var proxyAuthenticator: Authenticator
+
     @StartStop
     private val idpMock = MockWebServer()
 
@@ -65,7 +69,12 @@ class OAuth2AuthNServiceTest {
         )
         every { config.idpEndpoint } returns URI("http://${idpMock.hostName}:${idpMock.port}/${config.idpCredentials.tenantId.id}/oauth2/v2.0/token").toURL()
 
-        authNService = OAuth2AuthNService(config = config, retryIoErrors = retryIoExceptionsTwice, proxyConfiguration = ProxyConfiguration.Disabled)
+        authNService = OAuth2AuthNService(
+            config = config,
+            retryIoErrors = retryIoExceptionsTwice,
+            proxyConfiguration = ProxyConfiguration.Disabled,
+            proxyAuthenticator = proxyAuthenticator
+        )
     }
 
     @Test
@@ -133,7 +142,8 @@ class OAuth2AuthNServiceTest {
             config = config,
             clock = constantTimeClock,
             retryIoErrors = retryIoExceptionsTwice,
-            proxyConfiguration = ProxyConfiguration.Disabled
+            proxyConfiguration = ProxyConfiguration.Disabled,
+            proxyAuthenticator = proxyAuthenticator
         )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
@@ -177,7 +187,8 @@ class OAuth2AuthNServiceTest {
             config = config,
             clock = constantTimeClock,
             retryIoErrors = retryIoExceptionsTwice,
-            proxyConfiguration = ProxyConfiguration.Disabled
+            proxyConfiguration = ProxyConfiguration.Disabled,
+            proxyAuthenticator = proxyAuthenticator
         )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }

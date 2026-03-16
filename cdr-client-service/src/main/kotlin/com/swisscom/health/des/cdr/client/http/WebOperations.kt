@@ -201,8 +201,8 @@ internal class WebOperations(
             }
             logger.trace { "validating credentials" }
             logger.info {
-                val proxy = config.proxyUrl
-                if (proxy != null && proxy.url != EMPTY_STRING) {
+                val proxy = config.proxyConfig
+                if (proxy != null && proxy.url.value != EMPTY_STRING) {
                     "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' " +
                             "with proxy config: ${proxy.url}"
                 } else {
@@ -241,6 +241,22 @@ internal class WebOperations(
             )
         )
     )
+
+    @PutMapping("api/validate-proxy")
+    internal suspend fun validateProxy(
+        @RequestParam(name = "url") url: String,
+    ): ResponseEntity<ValidationResult> = runCatching {
+        logger.debug { "validating mode for proxy: '$url'" }
+        ResponseEntity
+            .ok(
+                configValidationService.validateProxySetting(url)
+            )
+    }.getOrElse { error: Throwable ->
+        when (error) {
+            is WebOperationsAdvice.ServerError, is WebOperationsAdvice.BadRequest -> throw error
+            else -> throw WebOperationsAdvice.ServerError("Failed to validate proxy settings", error)
+        }
+    }
 
     //
     // END - (Configuration) Validation Endpoints

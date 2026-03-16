@@ -4,7 +4,11 @@ import com.mayakapps.kache.InMemoryKache
 import com.mayakapps.kache.KacheStrategy
 import com.mayakapps.kache.ObjectKache
 import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
+import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService.AuthNResponse
+import com.swisscom.health.des.cdr.client.config.ProxyConfiguration.Disabled
+import com.swisscom.health.des.cdr.client.config.ProxyConfiguration.Enabled
+import com.swisscom.health.des.cdr.client.handler.ConfigValidationService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +23,12 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.retry.support.RetryTemplate
 import java.io.IOException
+import java.net.Authenticator
+import java.net.InetSocketAddress
+import java.net.PasswordAuthentication
+import java.net.Proxy
 import java.net.URI
+import java.net.URISyntaxException
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -39,40 +48,89 @@ internal class CdrClientContext {
      * Creates a proxy configuration bean that will be used by both OkHttp and OAuth2 clients.
      */
     @Bean
-    fun proxyConfiguration(config: CdrClientConfig): ProxyConfiguration = when {
-        config.proxyUrl == null || config.proxyUrl.url == EMPTY_STRING -> ProxyConfiguration.Disabled.also {
+    fun proxyConfiguration(config: CdrClientConfig, configValidationService: ConfigValidationService): ProxyConfiguration = when {
+        config.proxyConfig == null || config.proxyConfig.url.value == EMPTY_STRING -> Disabled.also {
             logger.debug { "No proxy URL configured, proceeding without HTTP proxy" }
         }
 
-        !config.proxyUrl.url.startsWith("http://") && !config.proxyUrl.url.startsWith("https://") ->
-            ProxyConfiguration.Disabled.also { logger.error { "Invalid proxy URL '${config.proxyUrl.url}': must start with http:// or https://" } }
+        configValidationService.validateProxySetting(config.proxyConfig.url.value) is DTOs.ValidationResult.Failure ->
+            Disabled.also { logger.error { "Invalid proxy URL '${config.proxyConfig.url.value}': must start with http:// or https://" } }
 
-        else -> try {
-            val proxyUri = URI(config.proxyUrl.url)
+        else -> runCatching {
+            val proxyUri = URI(config.proxyConfig.url.value)
 
             // Validate that we have a host and port
             if (proxyUri.host == null) {
-                logger.error { "Invalid proxy URL '${config.proxyUrl.url}': missing host" }
-                ProxyConfiguration.Disabled
+                logger.error { "Invalid proxy URL '${config.proxyConfig.url.value}': missing host" }
+                Disabled
             } else {
                 // Use appropriate default port based on scheme
                 val port = getProxyPort(proxyUri)
 
-                ProxyConfiguration.Enabled(
-                    proxy = java.net.Proxy(
-                        java.net.Proxy.Type.HTTP,
-                        java.net.InetSocketAddress(proxyUri.host, port)
+                // Extract credentials from config
+                val username = config.proxyConfig.username.value.takeIf { it.isNotBlank() }
+                val password = config.proxyConfig.password.value.takeIf { it.isNotBlank() }
+
+                Enabled(
+                    proxy = Proxy(
+                        Proxy.Type.HTTP,
+                        InetSocketAddress(proxyUri.host, port)
                     ),
-                    host = proxyUri.host,
-                    port = port
-                ).also { logger.info { "Configured HTTP proxy: '${config.proxyUrl.url}'" } }
+                    username = username,
+                    password = password
+                ).also {
+                    if (username != null) {
+                        logger.info { "Configured HTTP proxy with authentication: '${config.proxyConfig.url.value}' (username: $username)" }
+                    } else {
+                        logger.info { "Configured HTTP proxy: '${config.proxyConfig.url.value}'" }
+                    }
+                }
             }
-        } catch (e: java.net.URISyntaxException) {
-            logger.error(e) { "Invalid proxy URL syntax: '${config.proxyUrl.url}'" }
-            ProxyConfiguration.Disabled
-        } catch (e: IllegalArgumentException) {
-            logger.error(e) { "Failed to configure proxy with URL '${config.proxyUrl.url}'" }
-            ProxyConfiguration.Disabled
+        }.getOrElse { e ->
+            when (e) {
+                is URISyntaxException -> logger.error(e) { "Invalid proxy URL syntax: '${config.proxyConfig.url.value}'" }
+                is IllegalArgumentException -> logger.error(e) { "Failed to configure proxy with URL '${config.proxyConfig.url.value}'" }
+                else -> logger.error(e) { "Unexpected error configuring proxy with URL '${config.proxyConfig.url.value}'" }
+            }
+            Disabled
+        }
+    }
+
+    /**
+     * Configures system-wide proxy authenticator for Nimbus JWT HTTP client.
+     * This is required because Nimbus uses Java's built-in HttpURLConnection which relies on
+     * the system-wide Authenticator for proxy authentication.
+     */
+    @Bean
+    fun proxyAuthenticator(proxyConfiguration: ProxyConfiguration): Authenticator? {
+        return when (proxyConfiguration) {
+            is Enabled -> {
+                if (proxyConfiguration.username != null && proxyConfiguration.password != null) {
+                    object : Authenticator() {
+                        override fun getPasswordAuthentication(): PasswordAuthentication? {
+                            return if (requestorType == RequestorType.PROXY) {
+                                logger.debug { "Providing proxy authentication for '${requestingHost}:${requestingPort}'" }
+                                PasswordAuthentication(
+                                    proxyConfiguration.username,
+                                    proxyConfiguration.password.toCharArray()
+                                )
+                            } else {
+                                null
+                            }
+                        }
+                    }.also {
+                        Authenticator.setDefault(it)
+                        logger.info { "Configured system-wide proxy authenticator for user: '${proxyConfiguration.username}'" }
+                    }
+                } else {
+                    logger.debug { "No proxy credentials configured, skipping proxy authenticator setup" }
+                    null
+                }
+            }
+            is Disabled -> {
+                logger.debug { "Proxy disabled, skipping proxy authenticator setup" }
+                null
+            }
         }
     }
 
@@ -82,7 +140,7 @@ internal class CdrClientContext {
             "https" -> DEFAULT_HTTPS_PORT
             "http" -> DEFAULT_HTTP_PORT
             // should never happen, as the calling function already validated the scheme, but we need to handle it to satisfy the compiler
-            else -> throw IllegalArgumentException("Unsupported proxy URI scheme: '${proxyUri.scheme}'")
+            else -> UNDEFINED_PORT
         }
     }
 
@@ -104,9 +162,23 @@ internal class CdrClientContext {
             .connectTimeout(timeout, TimeUnit.MILLISECONDS).readTimeout(readTimeout, TimeUnit.MILLISECONDS)
             .apply {
                 // Configure proxy if enabled
-                if (proxyConfiguration is ProxyConfiguration.Enabled) {
+                if (proxyConfiguration is Enabled) {
                     proxy(proxyConfiguration.proxy)
-                    logger.info { "Configured OkHttp with HTTP proxy: ${proxyConfiguration.host}:${proxyConfiguration.port}" }
+                    logger.info { "Configured OkHttp with HTTP proxy: '${proxyConfiguration.proxy}'" }
+
+                    // Add proxy authenticator if credentials are provided
+                    if (proxyConfiguration.username != null && proxyConfiguration.password != null) {
+                        proxyAuthenticator { _, response ->
+                            val credential = okhttp3.Credentials.basic(
+                                proxyConfiguration.username,
+                                proxyConfiguration.password
+                            )
+                            response.request.newBuilder()
+                                .header("Proxy-Authorization", credential)
+                                .build()
+                        }
+                        logger.info { "Configured OkHttp with proxy authentication for user: '${proxyConfiguration.username}'" }
+                    }
                 }
             }
             .addInterceptor { chain ->
@@ -261,9 +333,9 @@ internal sealed interface ProxyConfiguration {
     object Disabled : ProxyConfiguration
 
     data class Enabled(
-        val proxy: java.net.Proxy,
-        val host: String,
-        val port: Int
+        val proxy: Proxy,
+        val username: String? = null,
+        val password: String? = null
     ) : ProxyConfiguration
 }
 

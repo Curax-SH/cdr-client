@@ -189,7 +189,7 @@ class DTOs {
         val fileBusyTestInterval: Duration,
         val fileBusyTestTimeout: Duration,
         val fileBusyTestStrategy: FileBusyTestStrategy,
-        val proxyUrl: String,
+        val proxyConfig: ProxyConfig,
     ) {
 
         companion object {
@@ -211,8 +211,24 @@ class DTOs {
                 fileBusyTestTimeout = Duration.ZERO,
                 fileBusyTestStrategy = FileBusyTestStrategy.NEVER_BUSY,
                 retryTemplate = RetryTemplateConfig.EMPTY,
-                proxyUrl = EMPTY_STRING,
+                proxyConfig = ProxyConfig.EMPTY,
             )
+        }
+
+        @Serializable
+        data class ProxyConfig(
+            val url: String,
+            val username: String,
+            val password: String,
+        ) {
+            companion object {
+                @JvmStatic
+                val EMPTY = ProxyConfig(
+                    url = EMPTY_STRING,
+                    username = EMPTY_STRING,
+                    password = EMPTY_STRING,
+                )
+            }
         }
 
         @Serializable

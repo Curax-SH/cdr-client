@@ -19,6 +19,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Service
 import java.io.IOException
+import java.net.Authenticator
 import java.net.URI
 import java.net.URL
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -36,6 +37,10 @@ internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
     private val proxyConfiguration: ProxyConfiguration,
     @Suppress("SpringJavaInjectionPointsAutowiringInspection")
     private val clock: Clock = Clock.System,
+    // Injecting proxyAuthenticator ensures it's initialized and Authenticator.setDefault() is called
+    // before any HTTP requests are made through Nimbus (which uses HttpURLConnection internally)
+    @Suppress("UNUSED_PARAMETER")
+    proxyAuthenticator: Authenticator?,
 ) {
 
     private var accessTokenAuthNResponse: AuthNResponse = AuthNResponse.NotAuthenticated
@@ -118,7 +123,7 @@ internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
 
                 if (proxyConfiguration is ProxyConfiguration.Enabled) {
                     httpRequest.proxy = proxyConfiguration.proxy
-                    logger.debug { "OAuth2 token request will use proxy: ${proxyConfiguration.host}:${proxyConfiguration.port}" }
+                    logger.debug { "OAuth2 token request will use proxy: '${proxyConfiguration.proxy}'" }
                 }
 
                 if (shouldRetry) {

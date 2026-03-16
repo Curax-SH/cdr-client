@@ -75,9 +75,10 @@ internal class ProxyConfigurationEnabledTest {
         }
 
         val enabledConfig = proxyConfiguration as ProxyConfiguration.Enabled
-        assertEquals(mockProxyServer.hostName, enabledConfig.host)
-        assertEquals(mockProxyServer.port, enabledConfig.port)
         assertNotNull(enabledConfig.proxy)
+        val address = enabledConfig.proxy.address() as java.net.InetSocketAddress
+        assertEquals(mockProxyServer.hostName, address.hostString)
+        assertEquals(mockProxyServer.port, address.port)
     }
 
     @Test
@@ -264,7 +265,9 @@ internal class ProxyConfigurationEnabledTest {
             mockIdpServer.start()
 
             // Configure application with proxy pointing to our mock server
-            registry.add("client.proxy-url") { "http://${mockProxyServer.hostName}:${mockProxyServer.port}" }
+            registry.add("client.proxy-config.url") { "http://${mockProxyServer.hostName}:${mockProxyServer.port}" }
+            registry.add("client.proxy-config.username") { "test-proxy-user" }
+            registry.add("client.proxy-config.password") { "test-proxy-pass" }
             registry.add("client.idp-endpoint") { "http://${mockIdpServer.hostName}:${mockIdpServer.port}/oauth2/token" }
             registry.add("client.cdr-api.host") { mockApiServer.hostName }
             registry.add("client.cdr-api.port") { mockApiServer.port }

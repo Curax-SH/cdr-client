@@ -101,6 +101,26 @@ internal class CdrClientApiClient {
             }
         }
 
+    suspend fun validateProxy(
+        config: DTOs.CdrClientConfig,
+        url: String?,
+    ): Result<DTOs.ValidationResult> =
+        when (url) {
+            null -> Result.Success(DTOs.ValidationResult.Success)
+            else -> {
+                putAnything<DTOs.CdrClientConfig, DTOs.ValidationResult>(
+                    CDR_CLIENT_VALIDATE_PROXY_URL
+                        .run {
+                            addQueryParams(
+                                "url" to url
+                            )
+                        },
+                    config,
+                    "Validate proxy is valid"
+                )
+            }
+        }
+
     /**
      * Retrieves the current client service configuration.
      *
@@ -354,6 +374,9 @@ internal class CdrClientApiClient {
 
         @JvmStatic
         private val CDR_CLIENT_VALIDATE_CONNECTOR_MODE = "$CDR_CLIENT_BASE_URL/validate-connector-mode".toHttpUrl()
+
+        @JvmStatic
+        private val CDR_CLIENT_VALIDATE_PROXY_URL = "$CDR_CLIENT_BASE_URL/validate-proxy".toHttpUrl()
 
         @JvmStatic
         private val JSON = Json {}

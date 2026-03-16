@@ -80,8 +80,8 @@ internal data class CdrClientConfig(
     /** Strategy to test whether a file is still busy (written into) before attempting to upload it. */
     val fileBusyTestStrategy: FileBusyTestStrategyProperty,
 
-    /** Proxy URL for all HTTP communication (optional, empty string means no proxy). */
-    val proxyUrl: ProxyUrl?,
+    /** Proxy configuration for all HTTP communication (optional). */
+    val proxyConfig: ProxyConfig?
 ) : PropertyNameAware {
     override val propertyName: String
         get() = PROPERTY_NAME
@@ -337,6 +337,22 @@ internal data class CredentialApi(
     }
 }
 
+/**
+ * Proxy configuration for HTTP clients.
+ */
+internal data class ProxyConfig(
+    val url: ProxyUrl,
+    val username: ProxyUsername,
+    val password: ProxyPassword,
+) : PropertyNameAware {
+    override val propertyName: String
+        get() = PROPERTY_NAME
+
+    companion object {
+        const val PROPERTY_NAME = "proxy-config"
+    }
+}
+
 @Suppress("JavaDefaultMethodsNotOverriddenByDelegation")
 internal data class Customer(
     private val customer: MutableList<Connector>
@@ -554,15 +570,46 @@ internal value class Host(val fqdn: String) : PropertyNameAware {
 // END - Value classes for Endpoint properties
 //
 
+//
+// BEGIN - Value classes for ProxyConfig properties
+//
+
 @JvmInline
-internal value class ProxyUrl(val url: String) : PropertyNameAware {
+internal value class ProxyUrl(val value: String) : PropertyNameAware {
     override val propertyName: String
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "proxy-url"
+        const val PROPERTY_NAME = "url"
     }
 }
+
+@JvmInline
+internal value class ProxyUsername(val value: String) : PropertyNameAware {
+    override val propertyName: String
+        get() = PROPERTY_NAME
+
+    companion object {
+        const val PROPERTY_NAME = "username"
+    }
+}
+
+@JvmInline
+internal value class ProxyPassword(val value: String) : PropertyNameAware {
+    override val propertyName: String
+        get() = PROPERTY_NAME
+
+    override fun toString(): String = "********"
+
+    companion object {
+        const val PROPERTY_NAME = "password"
+    }
+}
+
+//
+// END - Value classes for ProxyConfig properties
+//
+
 
 internal fun List<Connector>.getConnectorForSourceFile(file: Path): Connector =
     this.first { it.sourceFolder == file.parent || it.getAllSourceDocTypeFolders().contains(file.parent) }

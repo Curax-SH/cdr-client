@@ -1,6 +1,6 @@
 package com.swisscom.health.des.cdr.client.config
 
-import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
+import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.xml.DocumentType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -71,7 +71,7 @@ class ConfigConverterTest {
         fileBusyTestInterval = Duration.ofSeconds(1L),
         fileBusyTestTimeout = Duration.ofSeconds(1L),
         fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-        proxyUrl = ProxyUrl(EMPTY_STRING)
+        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig()
     )
 
     private val configAllAbsolutePaths: CdrClientConfig = CdrClientConfig(
@@ -130,7 +130,7 @@ class ConfigConverterTest {
         fileBusyTestInterval = Duration.ofSeconds(1L),
         fileBusyTestTimeout = Duration.ofSeconds(1L),
         fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-        proxyUrl = ProxyUrl(EMPTY_STRING)
+        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig()
     )
 
 

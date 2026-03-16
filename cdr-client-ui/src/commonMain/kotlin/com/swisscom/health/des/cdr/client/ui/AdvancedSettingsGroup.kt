@@ -21,8 +21,12 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.l
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret_renewal
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret_renewal_subtitle
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_client_idp_settings_client_secret_renewal_timestamp
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_proxy_password
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_proxy_password_placeholder
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_proxy_url
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_proxy_url_placeholder
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_proxy_username
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.label_proxy_username_placeholder
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -40,18 +44,46 @@ internal fun AdvancedSettingsGroup(
     ) { _ ->
         // Proxy URL
         var proxyValidationResult: DTOs.ValidationResult by remember { mutableStateOf(DTOs.ValidationResult.Success) }
-        LaunchedEffect(uiState.clientServiceConfig.proxyUrl) {
-            proxyValidationResult = remoteViewValidations.validateProxyUrl(uiState.clientServiceConfig.proxyUrl)
+        LaunchedEffect(uiState.clientServiceConfig) {
+            proxyValidationResult = remoteViewValidations.validateProxyUrl(uiState.clientServiceConfig)
         }
         ValidatedTextField(
             name = DomainObjects.ConfigurationItem.PROXY_URL,
-            modifier = modifier.padding(8.dp).fillMaxWidth(),
+            modifier = modifier.padding(horizontal = 8.dp, vertical = 0.dp).fillMaxWidth(),
             validatable = { proxyValidationResult },
             label = { Text(text = stringResource(Res.string.label_proxy_url)) },
-            value = uiState.clientServiceConfig.proxyUrl,
+            value = uiState.clientServiceConfig.proxyConfig.url,
             placeHolder = { Text(text = stringResource(Res.string.label_proxy_url_placeholder)) },
             onValueChange = {
                 if (canEdit) viewModel.setProxyUrl(it)
+            },
+            enabled = canEdit,
+        )
+
+        // Proxy Username
+        ValidatedTextField(
+            name = DomainObjects.ConfigurationItem.PROXY_USERNAME,
+            modifier = modifier.padding(horizontal = 8.dp, vertical = 0.dp).fillMaxWidth(),
+            validatable = { DTOs.ValidationResult.Success },
+            label = { Text(text = stringResource(Res.string.label_proxy_username)) },
+            value = uiState.clientServiceConfig.proxyConfig.username,
+            placeHolder = { Text(text = stringResource(Res.string.label_proxy_username_placeholder)) },
+            onValueChange = {
+                if (canEdit) viewModel.setProxyUsername(it)
+            },
+            enabled = canEdit,
+        )
+
+        // Proxy Password
+        ValidatedTextField(
+            name = DomainObjects.ConfigurationItem.PROXY_PASSWORD,
+            modifier = modifier.padding(horizontal = 8.dp, vertical = 0.dp).fillMaxWidth(),
+            validatable = { DTOs.ValidationResult.Success },
+            label = { Text(text = stringResource(Res.string.label_proxy_password)) },
+            value = uiState.clientServiceConfig.proxyConfig.password,
+            placeHolder = { Text(text = stringResource(Res.string.label_proxy_password_placeholder)) },
+            onValueChange = {
+                if (canEdit) viewModel.setProxyPassword(it)
             },
             enabled = canEdit,
         )
@@ -61,7 +93,7 @@ internal fun AdvancedSettingsGroup(
         // Client secret renewal
         OnOffSwitch(
             name = DomainObjects.ConfigurationItem.IDP_CLIENT_SECRET_RENWAL,
-            modifier = modifier.padding(bottom = 16.dp),
+            modifier = modifier.padding(start = 4.dp, end = 4.dp, bottom = 16.dp),
             title = stringResource(Res.string.label_client_idp_settings_client_secret_renewal),
             subtitle = stringResource(Res.string.label_client_idp_settings_client_secret_renewal_subtitle),
             checked = uiState.clientServiceConfig.idpCredentials.renewCredential,
@@ -72,7 +104,7 @@ internal fun AdvancedSettingsGroup(
         // Last credential renewal time
         DisabledTextField(
             name = DomainObjects.ConfigurationItem.IDP_CLIENT_SECRET_RENWAL_TIME,
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.padding(horizontal = 8.dp).fillMaxWidth(),
             label = { Text(text = stringResource(Res.string.label_client_idp_settings_client_secret_renewal_timestamp)) },
             value = uiState.clientServiceConfig.idpCredentials.lastCredentialRenewalTime.toString(),
         )
