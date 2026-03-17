@@ -353,6 +353,11 @@ internal data class ProxyConfig(
     }
 }
 
+internal data class ProxyCredentials(
+    val username: ProxyUsername,
+    val password: ProxyPassword,
+)
+
 @Suppress("JavaDefaultMethodsNotOverriddenByDelegation")
 internal data class Customer(
     private val customer: MutableList<Connector>

@@ -6,6 +6,12 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import java.net.URI
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.TimeUnit
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
@@ -25,14 +31,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.retry.support.RetryTemplate
 import java.io.IOException
-import java.net.Authenticator
-import java.net.URI
-import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.TimeUnit
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
-
 
 @ExtendWith(MockKExtension::class)
 @MockKExtension.CheckUnnecessaryStub
@@ -48,9 +46,6 @@ class OAuth2AuthNServiceTest {
 
     @MockK
     private lateinit var config: CdrClientConfig
-
-    @MockK
-    private lateinit var proxyAuthenticator: Authenticator
 
     @StartStop
     private val idpMock = MockWebServer()
@@ -72,8 +67,7 @@ class OAuth2AuthNServiceTest {
         authNService = OAuth2AuthNService(
             config = config,
             retryIoErrors = retryIoExceptionsTwice,
-            proxyConfiguration = ProxyConfiguration.Disabled,
-            proxyAuthenticator = proxyAuthenticator
+            proxy = null,
         )
     }
 
@@ -142,8 +136,7 @@ class OAuth2AuthNServiceTest {
             config = config,
             clock = constantTimeClock,
             retryIoErrors = retryIoExceptionsTwice,
-            proxyConfiguration = ProxyConfiguration.Disabled,
-            proxyAuthenticator = proxyAuthenticator
+            proxy = null,
         )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
@@ -187,8 +180,7 @@ class OAuth2AuthNServiceTest {
             config = config,
             clock = constantTimeClock,
             retryIoErrors = retryIoExceptionsTwice,
-            proxyConfiguration = ProxyConfiguration.Disabled,
-            proxyAuthenticator = proxyAuthenticator
+            proxy = null,
         )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }

@@ -22,6 +22,9 @@ import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 /**
@@ -58,7 +61,7 @@ internal class ProxyConfigurationEnabledTest {
     private lateinit var oauth2AuthNService: OAuth2AuthNService
 
     @Autowired
-    private lateinit var proxyConfiguration: ProxyConfiguration
+    private lateinit var proxy: Optional<Proxy>
 
     @Autowired
     private lateinit var cdrApiClient: CdrApiClient
@@ -70,13 +73,8 @@ internal class ProxyConfigurationEnabledTest {
     fun `application ProxyConfiguration bean is Enabled with correct proxy settings`() {
         // Given: Application started with proxy-url configured
         // Then: ProxyConfiguration bean should be Enabled
-        assertTrue(proxyConfiguration is ProxyConfiguration.Enabled) {
-            "Expected ProxyConfiguration.Enabled but got ${proxyConfiguration::class.simpleName}"
-        }
-
-        val enabledConfig = proxyConfiguration as ProxyConfiguration.Enabled
-        assertNotNull(enabledConfig.proxy)
-        val address = enabledConfig.proxy.address() as java.net.InetSocketAddress
+        assertTrue(proxy.isPresent)
+        val address = (proxy.get().address() as InetSocketAddress)
         assertEquals(mockProxyServer.hostName, address.hostString)
         assertEquals(mockProxyServer.port, address.port)
     }

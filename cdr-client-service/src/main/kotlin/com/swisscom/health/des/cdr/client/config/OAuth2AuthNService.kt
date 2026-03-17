@@ -18,10 +18,11 @@ import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService.AuthNState.U
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Service
+import org.springframework.context.annotation.DependsOn
 import java.io.IOException
-import java.net.Authenticator
 import java.net.URI
 import java.net.URL
+import java.net.Proxy
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -31,16 +32,12 @@ import kotlin.time.ExperimentalTime
 private val logger = KotlinLogging.logger {}
 
 @Service
+@DependsOn("systemProxyAuthenticator")
 internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
     private val config: CdrClientConfig,
     private val retryIoErrors: RetryTemplate,
-    private val proxyConfiguration: ProxyConfiguration,
-    @Suppress("SpringJavaInjectionPointsAutowiringInspection")
+    private val proxy: Proxy?,
     private val clock: Clock = Clock.System,
-    // Injecting proxyAuthenticator ensures it's initialized and Authenticator.setDefault() is called
-    // before any HTTP requests are made through Nimbus (which uses HttpURLConnection internally)
-    @Suppress("UNUSED_PARAMETER")
-    proxyAuthenticator: Authenticator?,
 ) {
 
     private var accessTokenAuthNResponse: AuthNResponse = AuthNResponse.NotAuthenticated
@@ -121,9 +118,9 @@ internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
             runCatching {
                 val httpRequest = request.toHTTPRequest()
 
-                if (proxyConfiguration is ProxyConfiguration.Enabled) {
-                    httpRequest.proxy = proxyConfiguration.proxy
-                    logger.debug { "OAuth2 token request will use proxy: '${proxyConfiguration.proxy}'" }
+                proxy?.let { p ->
+                    httpRequest.proxy = p
+                    logger.debug { "OAuth2 token request will use proxy: '$p'" }
                 }
 
                 if (shouldRetry) {
