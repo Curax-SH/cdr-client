@@ -57,21 +57,39 @@ public class WatchdogService : BackgroundService
         {
             // Step 1: Expand any environment variables (e.g., %BASE%, %USERPROFILE%)
             var expandedPath = Environment.ExpandEnvironmentVariables(path);
-            
+
             // Step 2: Convert relative paths to absolute paths
             if (!Path.IsPathRooted(expandedPath))
             {
                 var watchdogDirectory = GetWatchdogServiceDirectory();
                 var baseDirectory = DetermineBaseDirectory(watchdogDirectory);
-                expandedPath = Path.Combine(baseDirectory, expandedPath);
-                _logger.LogInformation("Resolved relative path '{OriginalPath}' to '{ResolvedPath}' via base directory '{BaseDirectory}'", 
-                    path, expandedPath, baseDirectory);
+                var candidate = Path.GetFullPath(Path.Combine(baseDirectory, expandedPath));
+
+                _logger.LogDebug("Attempting to resolve service executable using base directory '{BaseDirectory}' -> '{Candidate}'", baseDirectory, candidate);
+
+                if (File.Exists(candidate))
+                {
+                    _logger.LogInformation("Resolved relative path '{OriginalPath}' to existing path '{ResolvedPath}'", path, candidate);
+                    return candidate;
+                }
+
+                // If the candidate doesn't exist, try searching ancestor directories for a 'bin\<exe>' layout.
+                var found = SearchAncestorBinsForExecutable(watchdogDirectory, expandedPath);
+                if (!string.IsNullOrEmpty(found))
+                {
+                    _logger.LogInformation("Resolved relative path '{OriginalPath}' to discovered path '{ResolvedPath}' via ancestor bin search", path, found);
+                    return found;
+                }
+
+                // As additional fallback, return the original candidate (may be used to report a clear error)
+                _logger.LogWarning("Could not find executable at '{Candidate}' or via ancestor search; returning candidate for diagnostic/error reporting.", candidate);
+                return candidate;
             }
             else
             {
                 _logger.LogInformation("Using absolute service executable path: {Path}", expandedPath);
             }
-            
+
             return expandedPath;
         }
         catch (Exception ex)
@@ -79,6 +97,36 @@ public class WatchdogService : BackgroundService
             _logger.LogError(ex, "Error resolving path: {Path}. Using original path as fallback.", path);
             return path;
         }
+    }
+
+    // Search upward from the start directory for a 'bin' folder containing the requested executable.
+    private string? SearchAncestorBinsForExecutable(string startDirectory, string exeRelativePath)
+    {
+        try
+        {
+            var dirInfo = new DirectoryInfo(startDirectory);
+
+            while (dirInfo != null)
+            {
+                // Candidate 1: ancestor\bin\<exe>
+                var candidate1 = Path.GetFullPath(Path.Combine(dirInfo.FullName, "bin", exeRelativePath));
+                _logger.LogDebug("Searching for executable candidate: {Candidate}", candidate1);
+                if (File.Exists(candidate1)) return candidate1;
+
+                // Candidate 2: ancestor\app\bin\<exe> (covers layouts where 'app' is a sibling)
+                var candidate2 = Path.GetFullPath(Path.Combine(dirInfo.FullName, "app", "bin", exeRelativePath));
+                _logger.LogDebug("Searching for executable candidate: {Candidate}", candidate2);
+                if (File.Exists(candidate2)) return candidate2;
+
+                dirInfo = dirInfo.Parent;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error during ancestor bin search");
+        }
+
+        return null;
     }
 
     private string GetWatchdogServiceDirectory()
