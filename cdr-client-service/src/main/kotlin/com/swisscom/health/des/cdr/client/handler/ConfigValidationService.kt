@@ -28,12 +28,15 @@ import com.swisscom.health.des.cdr.client.config.CdrClientConfig
 import com.swisscom.health.des.cdr.client.config.toDto
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
+import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.time.Duration
+import kotlin.io.path.exists
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isReadable
 import kotlin.io.path.isWritable
-import kotlin.io.path.notExists
 
 private val logger = KotlinLogging.logger {}
 
@@ -49,7 +52,7 @@ internal class ConfigValidationService(
         val validations = mutableListOf<ValidationResult>()
 
         validations.add(validateDirectoriesAreAbsolute(config))
-        validations.add(validateDirectoryIsReadWritable(Path.of(config.localFolder)))
+        validations.add(validateDirectoryIsReadWritable(config.localFolder))
         validations.add(validateDirectoryOverlap(config))
         validations.add(validateModeValue(config.customer))
         validations.add(validateModeOverlap(config.customer))
@@ -90,10 +93,10 @@ internal class ConfigValidationService(
     fun validateDirectoriesAreAbsolute(config: DTOs.CdrClientConfig): ValidationResult {
         val validations = mutableListOf<ValidationResult>()
         config.customer.forEach { connector ->
-            validations.add(checkIsAbsolute(Path.of(connector.sourceFolder)))
-            validations.add(checkIsAbsolute(Path.of(connector.targetFolder)))
+            validations.add(checkIsAbsolute(safePathOf(connector.sourceFolder)))
+            validations.add(checkIsAbsolute(safePathOf(connector.targetFolder)))
             if (connector.sourceErrorFolder != null) {
-                validations.add(checkIsAbsolute(Path.of(connector.sourceErrorFolder!!)))
+                validations.add(checkIsAbsolute(safePathOf(connector.sourceErrorFolder!!)))
             }
             if (connector.sourceArchiveEnabled) {
                 if (connector.sourceArchiveFolder == null) {
@@ -108,15 +111,15 @@ internal class ConfigValidationService(
                         )
                     )
                 } else {
-                    validations.add(checkIsAbsolute(Path.of(connector.sourceArchiveFolder!!)))
+                    validations.add(checkIsAbsolute(safePathOf(connector.sourceArchiveFolder!!)))
                 }
             }
             for (docTypeFolder in connector.docTypeFolders.values) {
                 if (docTypeFolder.sourceFolder != null) {
-                    validations.add(checkIsAbsolute(Path.of(docTypeFolder.sourceFolder!!)))
+                    validations.add(checkIsAbsolute(safePathOf(docTypeFolder.sourceFolder!!)))
                 }
                 if (docTypeFolder.targetFolder != null) {
-                    validations.add(checkIsAbsolute(Path.of(docTypeFolder.targetFolder!!)))
+                    validations.add(checkIsAbsolute(safePathOf(docTypeFolder.targetFolder!!)))
                 }
             }
         }
@@ -128,7 +131,13 @@ internal class ConfigValidationService(
         )
     }
 
-    private fun checkIsAbsolute(path: Path) = if (path.isAbsolute) {
+    private fun checkIsAbsolute(path: Path?) = if (path == null) {
+        ValidationResult.Failure(
+            listOf(
+                DTOs.ValidationDetail.PathDetail(path = "invalid", messageKey = DIRECTORY_NOT_FOUND)
+            )
+        )
+    } else if (path.isAbsolute) {
         ValidationResult.Success
     } else {
         ValidationResult.Failure(
@@ -226,22 +235,142 @@ internal class ConfigValidationService(
                 }
             )
 
-    fun validateDirectoryIsReadWritable(path: Path?): ValidationResult =
-        if (path == null || path.notExists()) {
+    /**
+     * Safely creates a Path from a string WITHOUT trimming, handling InvalidPathException.
+     * Use this for validating user input from the UI where we want to show errors for paths with spaces.
+     * Returns null if the path string is invalid (e.g., trailing spaces on Windows).
+     */
+    private fun safePathOfExact(pathString: String): Path? = try {
+        Path.of(pathString)
+    } catch (e: InvalidPathException) {
+        logger.warn { "Invalid path string: [$pathString], error: ${e.message}" }
+        null
+    }
+
+    /**
+     * Safely creates a Path from a string, trimming whitespace and handling InvalidPathException.
+     * Use this for paths from configuration files where accidental whitespace should be ignored.
+     * Returns null if the path string is invalid (e.g., contains illegal characters on Windows).
+     */
+    private fun safePathOf(pathString: String): Path? = try {
+        Path.of(pathString.trim())
+    } catch (e: InvalidPathException) {
+        logger.warn { "Invalid path string: [$pathString], error: ${e.message}" }
+        null
+    }
+
+    /**
+     * Validates a directory path provided as a String.
+     * Does NOT trim whitespace - validates the path exactly as provided.
+     * This is used for UI validation where trailing/leading spaces should result in validation errors.
+     */
+    fun validateDirectoryIsReadWritable(pathString: String): ValidationResult {
+        logger.debug { "Validating directory path: [$pathString]" }
+        val path = safePathOfExact(pathString)
+        return if (path == null) {
+            // Invalid path (e.g., trailing spaces on Windows) - return the original string in the error
+            logger.debug { "Path is null (invalid path string): [$pathString]" }
             ValidationResult.Failure(
-                listOf(DTOs.ValidationDetail.PathDetail(path = path.toString(), messageKey = DIRECTORY_NOT_FOUND))
-            )
-        } else if (!path.isDirectory()) {
-            ValidationResult.Failure(
-                listOf(DTOs.ValidationDetail.PathDetail(path = path.toString(), messageKey = NOT_A_DIRECTORY))
-            )
-        } else if (!path.isReadable() || !path.isWritable()) {
-            ValidationResult.Failure(
-                listOf(DTOs.ValidationDetail.PathDetail(path = path.toString(), messageKey = NOT_READ_WRITABLE))
+                listOf(DTOs.ValidationDetail.PathDetail(path = pathString, messageKey = DIRECTORY_NOT_FOUND))
             )
         } else {
-            ValidationResult.Success
+            logger.debug { "Path is valid: [${path}], absolute: [${path.toAbsolutePath()}], root: [${path.root}]" }
+
+            // Try to get more information about why the path might not be accessible
+            val (pathExists, accessError) = checkPathExists(path)
+
+            when {
+                !pathExists -> handleNonExistingPath(path, accessError)
+                !path.isDirectory() -> {
+                    logger.debug { "Path exists but is not a directory: [${path}], isRegularFile: [${Files.isRegularFile(path)}]" }
+                    ValidationResult.Failure(
+                        listOf(DTOs.ValidationDetail.PathDetail(path = path.toString(), messageKey = NOT_A_DIRECTORY))
+                    )
+                }
+
+                !path.isReadable() || !path.isWritable() -> {
+                    logger.debug { "Path is not readable or writable: [${path}], readable: [${Files.isReadable(path)}], writable: [${Files.isWritable(path)}]" }
+                    ValidationResult.Failure(
+                        listOf(DTOs.ValidationDetail.PathDetail(path = path.toString(), messageKey = NOT_READ_WRITABLE))
+                    )
+                }
+
+                else -> {
+                    logger.debug { "Path validation successful: [${path}]" }
+                    ValidationResult.Success
+                }
+            }
         }
+    }
+
+    private fun checkPathExists(path: Path): Pair<Boolean, Exception?> = runCatching { path.exists() }.fold(
+        onSuccess = { exists ->
+            if (!exists) {
+                // Files.exists() returned false - attempt access to get more context
+                runCatching { path.getLastModifiedTime() }.fold(
+                    onSuccess = {
+                        logger.warn { "Needs further investigation: Files.exists() returned false but getLastModifiedTime succeeded for: [${path}]" }
+                        true to null
+                    },
+                    onFailure = { accessException ->
+                        logger.warn { "Path access attempt failed: [${path}], error: ${accessException::class.simpleName}: ${accessException.message}" }
+                        // accessException is a Throwable; cast to Exception when possible
+                        false to (accessException as? Exception ?: Exception(accessException))
+                    }
+                )
+            } else {
+                true to null
+            }
+        },
+        onFailure = { e ->
+            logger.warn { "Exception checking if path exists: [${path}], error: ${e::class.simpleName}: ${e.message}" }
+            false to (e as? Exception ?: Exception(e))
+        }
+    )
+
+    private fun handleNonExistingPath(path: Path, accessError: Exception?): ValidationResult {
+        // Provide additional context for different path types
+        val pathStr = path.toString()
+        val isUncPath = pathStr.startsWith("\\\\") || pathStr.startsWith("//")
+        // just a wild guess on Windows systems so that we could provide some hints in the error message
+        val isMappedDrive = !isUncPath && path.root?.toString()?.let { root ->
+            root.length == WINDOWS_DRIVER_ROOT_LENGTH && root[1] == ':' && root[0].uppercaseChar() in 'D'..'Z'
+        } ?: false
+
+        when {
+            isUncPath -> {
+                logger.warn {
+                    "Network path is not accessible: [${path}]. " +
+                            (accessError?.let { "Error: ${it::class.simpleName}: ${it.message}. " } ?: "") +
+                            "This is typically caused by: " +
+                            "1) Missing or incorrect authentication credentials for the network share, " +
+                            "2) The service/process does not have network access or proper permissions, " +
+                            "3) The share does not exist or is not mounted, or " +
+                            "4) Firewall or network connectivity issues. " +
+                            "For Windows UNC paths (\\\\server\\share), verify credentials with 'cmdkey /list' (for the user running the service). " +
+                            "For Unix/Linux NFS/SMB mounts, check if the share is mounted and accessible."
+                }
+            }
+
+            isMappedDrive -> {
+                logger.warn {
+                    "Mapped network drive is not accessible: [${path}]. " +
+                            (accessError?.let { "Error: ${it::class.simpleName}: ${it.message}. " } ?: "") +
+                            "Mapped drives are user-specific and session-specific. " +
+                            "The drive may not be available to this process because: " +
+                            "1) It was mapped by a different user, " +
+                            "2) It was mapped in a different session, or " +
+                            "3) The mapping was not made persistent. " +
+                            "Consider using a direct network path instead (Windows: \\\\server\\share, Unix: /mnt/share or NFS mount)."
+                }
+            }
+        }
+
+        logger.debug { "Path does not exist: [${path}]" }
+        return ValidationResult.Failure(
+            listOf(DTOs.ValidationDetail.PathDetail(path = path.toString(), messageKey = DIRECTORY_NOT_FOUND))
+        )
+    }
 
     fun validateIsNotBlankOrPlaceholder(value: String?, configItem: DomainObjects.ConfigurationItem): ValidationResult =
         when (val valueIsNotBlank = validateIsNotBlank(value, configItem)) {
@@ -266,9 +395,9 @@ internal class ConfigValidationService(
 
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun validateDirectoryOverlap(config: DTOs.CdrClientConfig): ValidationResult {
-        fun getAllBaseSourceFolders(): List<Path> = config.customer.map { connector ->
-            Path.of(connector.sourceFolder)
-                .also {
+        fun getAllBaseSourceFolders(): List<Path> = config.customer.mapNotNull { connector ->
+            safePathOf(connector.sourceFolder)
+                ?.also {
                     logger.debug {
                         "connector [${connector.connectorId}-${connector.mode}] base source folder: [${connector.sourceFolder}]," +
                                 " base error folder: [${connector.sourceErrorFolder}]"
@@ -276,9 +405,9 @@ internal class ConfigValidationService(
                 }
         }
 
-        fun getAllBaseTargetFolders(): List<Path> = config.customer.map { connector ->
-            Path.of(connector.targetFolder)
-                .also {
+        fun getAllBaseTargetFolders(): List<Path> = config.customer.mapNotNull { connector ->
+            safePathOf(connector.targetFolder)
+                ?.also {
                     logger.debug { "connector [${connector.connectorId}-${connector.mode}] base target folder: [${connector.targetFolder}]" }
                 }
         }
@@ -298,7 +427,9 @@ internal class ConfigValidationService(
             }
             .flatMap { (sourceFolder, docTypeFolders) ->
                 docTypeFolders.mapNotNull {
-                    effectiveSourceFolder(sourceFolder = Path.of(sourceFolder), docTypeFolders = it)
+                    safePathOf(sourceFolder)?.let { sourcePath ->
+                        effectiveSourceFolder(sourceFolder = sourcePath, docTypeFolders = it)
+                    }
                 }
             }
 
@@ -306,36 +437,39 @@ internal class ConfigValidationService(
             .map { connector -> connector.targetFolder to connector.docTypeFolders.values }
             .flatMap { (targetFolder, docTypeFolders) ->
                 docTypeFolders.mapNotNull {
-                    effectiveTargetFolder(targetFolder = Path.of(targetFolder), docTypeFolders = it)
+                    safePathOf(targetFolder)?.let { targetPath ->
+                        effectiveTargetFolder(targetFolder = targetPath, docTypeFolders = it)
+                    }
                 }
             }
 
         fun getSourceErrorFolder(): List<Path> = config.customer
-            .map { connector ->
-                val effectiveErrorPaths: Path = when (connector.sourceErrorFolder) {
-                    null -> Path.of(connector.sourceFolder).resolve(ERROR_DIR_NAME)
-                    connector.sourceFolder -> Path.of(connector.sourceFolder).resolve(ERROR_DIR_NAME)
-                    else -> Path.of(connector.sourceErrorFolder!!)
+            .mapNotNull { connector ->
+                val effectiveErrorPaths: Path? = when (connector.sourceErrorFolder) {
+                    null -> safePathOf(connector.sourceFolder)?.resolve(ERROR_DIR_NAME)
+                    connector.sourceFolder -> safePathOf(connector.sourceFolder)?.resolve(ERROR_DIR_NAME)
+                    else -> safePathOf(connector.sourceErrorFolder!!)
                 }
 
-                logger.debug {
-                    "connector [${connector.connectorId}-${connector.mode}] source error folder: [$effectiveErrorPaths]"
+                effectiveErrorPaths?.also {
+                    logger.debug {
+                        "connector [${connector.connectorId}-${connector.mode}] source error folder: [$it]"
+                    }
                 }
-                effectiveErrorPaths
             }.distinct()
 
         fun getSourceArchiveFolders(): List<Path> = config.customer
             .mapNotNull { connector ->
                 connector.sourceArchiveFolder?.let { archiveFolder ->
-                    val archivePath = Path.of(archiveFolder)
-                    logger.debug {
-                        "connector [${connector.connectorId}-${connector.mode}] source archive folder: [$archivePath]"
+                    safePathOf(archiveFolder)?.also { archivePath ->
+                        logger.debug {
+                            "connector [${connector.connectorId}-${connector.mode}] source archive folder: [$archivePath]"
+                        }
                     }
-                    archivePath
                 }
             }.distinct()
 
-        val localDirectory: List<Path> = listOf(Path.of(config.localFolder))
+        val localDirectory: List<Path> = listOfNotNull(safePathOf(config.localFolder))
         val baseSourceFolders: List<Path> = getAllBaseSourceFolders()
         val allSourceTypeFolders: List<Path> = getAllSourceDocTypeFolders()
         val errorFolders: List<Path> = getSourceErrorFolder()
@@ -420,7 +554,7 @@ internal class ConfigValidationService(
         // no non error dir should end in the default error folder name
         val errorFolderNameOverlap: ValidationResult =
             (localDirectory + baseSourceFolders + allSourceTypeFolders + baseTargetFolders + allTargetTypeFolders + archiveFolders)
-                .filter { it.fileName.toString() == ERROR_DIR_NAME }
+                .filter { it.fileName?.toString() == ERROR_DIR_NAME }
                 .let { overlappingErrorFolderDirs ->
                     if (overlappingErrorFolderDirs.isNotEmpty()) {
                         ValidationResult.Failure(
@@ -490,7 +624,7 @@ internal class ConfigValidationService(
 
     fun validateProxySetting(proxyUrl: String): ValidationResult {
         return if (proxyUrl.isNotBlank()) {
-            if(!proxyUrl.startsWith("http://") && !proxyUrl.startsWith("https://")){
+            if (!proxyUrl.startsWith("http://") && !proxyUrl.startsWith("https://")) {
                 ValidationResult.Failure(
                     listOf(
                         DTOs.ValidationDetail.ConfigItemDetail(
@@ -509,8 +643,8 @@ internal class ConfigValidationService(
 
     private fun validateConnectorFolders(connector: DTOs.CdrClientConfig.Connector): List<ValidationResult> {
         val baseValidations = listOf(
-            validateDirectoryIsReadWritable(Path.of(connector.sourceFolder)),
-            validateDirectoryIsReadWritable(Path.of(connector.targetFolder))
+            validateDirectoryIsReadWritable(connector.sourceFolder),
+            validateDirectoryIsReadWritable(connector.targetFolder)
         )
 
         val archiveValidations = if (connector.sourceArchiveEnabled) {
@@ -520,7 +654,7 @@ internal class ConfigValidationService(
             )
 
             if (placeholderValidation is ValidationResult.Success) {
-                listOf(placeholderValidation, validateDirectoryIsReadWritable(Path.of(connector.sourceArchiveFolder!!)))
+                listOf(placeholderValidation, validateDirectoryIsReadWritable(connector.sourceArchiveFolder!!))
             } else {
                 listOf(placeholderValidation)
             }
@@ -544,12 +678,13 @@ internal class ConfigValidationService(
 
     private fun validateNotRequiredFolder(folder: String?, configurationItem: DomainObjects.ConfigurationItem): ValidationResult =
         when (validateIsNotBlank(value = folder, configItem = configurationItem)) {
-            is ValidationResult.Success -> validateDirectoryIsReadWritable(Path.of(folder!!))
+            is ValidationResult.Success -> validateDirectoryIsReadWritable(folder!!)
             is ValidationResult.Failure -> ValidationResult.Success
         }
 
     companion object {
         private const val PLACEHOLDER_VALUE = "value-required"
+        private const val WINDOWS_DRIVER_ROOT_LENGTH = 3
     }
 
 }

@@ -45,7 +45,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
-import java.nio.file.Path
 import java.time.Instant
 
 private val logger = KotlinLogging.logger {}
@@ -140,14 +139,16 @@ internal class WebOperations(
      * query parameter and their results are combined.
      *
      * @param config the CDR Client configuration to use for validating single use of directories
-     * @param directory the directory to validate
+     * @param directory the directory to validate (as a String to handle invalid paths gracefully)
      * @param validations the list of validation types to perform on the directory
      * @return a [DTOs.ValidationResult] indicating the result of the validation
      */
     @PutMapping("api/validate-directory")
     internal suspend fun validateDirectory(
         @RequestBody config: DTOs.CdrClientConfig,
-        @RequestParam(name = "dir") directory: Path,
+        // don't use java.nio.file.Path here to allow the endpoint to handle invalid paths (e.g., with trailing spaces on Windows) gracefully
+        // and return validation errors instead of throwing exceptions
+        @RequestParam(name = "dir") directory: String,
         @RequestParam(name = "validation") validations: List<DomainObjects.ValidationType>,
     ): ResponseEntity<ValidationResult> = runCatching {
         logger.debug { "validating dir: '$directory', validations: '$validations'" }
