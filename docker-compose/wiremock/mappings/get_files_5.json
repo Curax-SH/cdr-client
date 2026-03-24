@@ -25,7 +25,8 @@
         "status": 200,
         "headers": {
           "Content-Type": "*/*",
-          "cdr-document-uuid": "999"
+          "cdr-document-uuid": "999",
+          "cdr-document-prefix": "{{randomValue length=12 type='NUMERIC'}}_{{randomValue length=12 type='NUMERIC'}}"
         },
         "base64Body": "IlRoZSBjb3Ntb3MgaXMgd2l0aGluIHVzLiBXZSBhcmUgbWFkZSBvZiBzdGFyLXN0dWZmLiBXZSBhcmUgYSB3YXkgZm9yIHRoZSB1bml2ZXJzZSB0byBrbm93IGl0c2VsZi4iIC0gKENhcmwgU2FnYW4p"
       }
@@ -78,7 +79,8 @@
         "status": 200,
         "headers": {
           "Content-Type": "*/*",
-          "cdr-document-uuid": "888"
+          "cdr-document-uuid": "888",
+          "cdr-document-prefix": "{{randomValue length=12 type='NUMERIC'}}_{{randomValue length=12 type='NUMERIC'}}"
         },
         "base64Body": "IkJlIHlvdXJzZWxmOyBldmVyeW9uZSBlbHNlIGlzIGFscmVhZHkgdGFrZW4uIiAtIE9zY2FyIFdpbGRl"
       }
@@ -131,7 +133,8 @@
         "status": 200,
         "headers": {
           "Content-Type": "*/*",
-          "cdr-document-uuid": "777"
+          "cdr-document-uuid": "777",
+          "cdr-document-prefix": "{{randomValue length=12 type='NUMERIC'}}_{{randomValue length=12 type='NUMERIC'}}"
         },
         "base64Body": "IkEgcm9vbSB3aXRob3V0IGJvb2tzIGlzIGxpa2UgYSBib2R5IHdpdGhvdXQgYSBzb3VsLiIgLSBNYXJjdXMgVHVsbGl1cyBDaWNlcm8="
       }
@@ -184,7 +187,8 @@
         "status": 200,
         "headers": {
           "Content-Type": "*/*",
-          "cdr-document-uuid": "666"
+          "cdr-document-uuid": "666",
+          "cdr-document-prefix": "{{randomValue length=12 type='NUMERIC'}}_{{randomValue length=12 type='NUMERIC'}}"
         },
         "base64Body": "IkJlIHRoZSBjaGFuZ2UgdGhhdCB5b3Ugd2lzaCB0byBzZWUgaW4gdGhlIHdvcmxkLiIgLSBNYWhhdG1hIEdhbmRoaQ=="
       }
