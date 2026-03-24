@@ -4,8 +4,8 @@ import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DomainObjects
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.DIR_READ_WRITABLE
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.DIR_SINGLE_USE
-import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_VALUE
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_OVERLAP
+import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_VALUE
 import com.swisscom.health.des.cdr.client.ui.data.CdrClientApiClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
@@ -108,6 +108,23 @@ internal class CdrConfigViewRemoteValidations(
                         DTOs.ValidationResult.Success
                 }
             }
+        }
+
+    /**
+     * Validates that the given proxy URL is either empty or a valid HTTP/HTTPS URL format.
+     *
+     * @param config the proxy URL to validate
+     * @return a [DTOs.ValidationResult] indicating success or failure
+     */
+    internal suspend fun validateProxyUrl(config: DTOs.CdrClientConfig): DTOs.ValidationResult =
+        cdrClientApiClient.validateProxy(
+            config = config,
+            url = config.proxyConfig.url,
+        ).handle(
+            configurationItem = DomainObjects.ConfigurationItem.PROXY_URL,
+            onSuccess = { validationResult: DTOs.ValidationResult, _ -> validationResult }
+        ).run {
+            this
         }
 
     private suspend fun <U> CdrClientApiClient.Result<U>.handle(

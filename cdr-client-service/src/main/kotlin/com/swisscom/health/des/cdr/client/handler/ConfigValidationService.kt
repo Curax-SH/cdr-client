@@ -488,6 +488,25 @@ internal class ConfigValidationService(
         )
     }
 
+    fun validateProxySetting(proxyUrl: String): ValidationResult {
+        return if (proxyUrl.isNotBlank()) {
+            if(!proxyUrl.startsWith("http://") && !proxyUrl.startsWith("https://")){
+                ValidationResult.Failure(
+                    listOf(
+                        DTOs.ValidationDetail.ConfigItemDetail(
+                            configItem = DomainObjects.ConfigurationItem.PROXY_URL,
+                            messageKey = DTOs.ValidationMessageKey.PROXY_URL_MUST_START_WITH_HTTP_OR_HTTPS
+                        )
+                    )
+                )
+            } else {
+                ValidationResult.Success
+            }
+        } else {
+            ValidationResult.Success
+        }
+    }
+
     private fun validateConnectorFolders(connector: DTOs.CdrClientConfig.Connector): List<ValidationResult> {
         val baseValidations = listOf(
             validateDirectoryIsReadWritable(Path.of(connector.sourceFolder)),

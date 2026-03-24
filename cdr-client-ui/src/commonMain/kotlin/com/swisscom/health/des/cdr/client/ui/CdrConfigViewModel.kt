@@ -170,6 +170,60 @@ internal class CdrConfigViewModel(
         }
     }
 
+    /**
+     * Sets the proxy URL in the client service configuration.
+     *
+     * @param proxyUrl The proxy URL to use for all communication (empty string for no proxy).
+     */
+    fun setProxyUrl(proxyUrl: String) {
+        logger.debug { "setProxyUrl: '$proxyUrl'" }
+        _uiState.update {
+            it.copy(
+                clientServiceConfig = it.clientServiceConfig.copy(
+                    proxyConfig = it.clientServiceConfig.proxyConfig.copy(
+                        url = proxyUrl
+                    )
+                )
+            )
+        }
+    }
+
+    /**
+     * Sets the proxy username in the client service configuration.
+     *
+     * @param username The username for proxy authentication (empty string for no authentication).
+     */
+    fun setProxyUsername(username: String) {
+        logger.debug { "setProxyUsername: '$username'" }
+        _uiState.update {
+            it.copy(
+                clientServiceConfig = it.clientServiceConfig.copy(
+                    proxyConfig = it.clientServiceConfig.proxyConfig.copy(
+                        username = username
+                    )
+                )
+            )
+        }
+    }
+
+    /**
+     * Sets the proxy password in the client service configuration.
+     *
+     * @param password The password for proxy authentication (empty string for no authentication).
+     */
+    fun setProxyPassword(password: String) {
+        logger.debug { "setProxyPassword: (hidden)" }
+        _uiState.update {
+            it.copy(
+                clientServiceConfig = it.clientServiceConfig.copy(
+                    proxyConfig = it.clientServiceConfig.proxyConfig.copy(
+                        password = password
+                    )
+                )
+            )
+        }
+    }
+
     fun setIdpCredentialsScope(scope: String) {
         logger.debug { "setIdpCredentialsScope" }
         _uiState.update {

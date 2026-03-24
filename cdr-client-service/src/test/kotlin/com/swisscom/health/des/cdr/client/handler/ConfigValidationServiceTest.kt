@@ -614,6 +614,7 @@ internal class ConfigValidationServiceTest {
                 maxDelay = Duration.ofSeconds(5),
                 multiplier = 2.0,
             ),
+            proxyConfig = null,
         )
 
     private fun blueSkyConnectors() = listOf(

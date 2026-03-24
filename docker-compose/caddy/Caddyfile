@@ -13,3 +13,19 @@ localhost:80 {
     reverse_proxy /documents* wiremock:8080
     reverse_proxy /client-credentials wiremock:8080
 }
+
+:3000 {
+    log {
+        level DEBUG
+    }
+
+    handle /health {
+        respond "OK" 200
+    }
+
+    handle {
+        root * /srv/install
+        file_server browse
+    }
+}
+
