@@ -11,6 +11,7 @@ import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.ERROR
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.ERROR_DIR_OVERLAPS_NON_ERROR_DIR
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.FILE_BUSY_TEST_TIMEOUT_TOO_LONG
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.ILLEGAL_MODE
+import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.ILLEGAL_VALUE
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.LOCAL_DIR_OVERLAPS_WITH_SOURCE_DIRS
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.LOCAL_DIR_OVERLAPS_WITH_TARGET_DIRS
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.NOT_A_DIRECTORY
@@ -32,6 +33,8 @@ import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 import kotlin.io.path.exists
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isDirectory
@@ -93,10 +96,10 @@ internal class ConfigValidationService(
     fun validateDirectoriesAreAbsolute(config: DTOs.CdrClientConfig): ValidationResult {
         val validations = mutableListOf<ValidationResult>()
         config.customer.forEach { connector ->
-            validations.add(checkIsAbsolute(safePathOf(connector.sourceFolder)))
-            validations.add(checkIsAbsolute(safePathOf(connector.targetFolder)))
+            validations.add(checkIsAbsolute(connector.sourceFolder))
+            validations.add(checkIsAbsolute(connector.targetFolder))
             if (connector.sourceErrorFolder != null) {
-                validations.add(checkIsAbsolute(safePathOf(connector.sourceErrorFolder!!)))
+                validations.add(checkIsAbsolute(connector.sourceErrorFolder!!))
             }
             if (connector.sourceArchiveEnabled) {
                 if (connector.sourceArchiveFolder == null) {
@@ -111,15 +114,15 @@ internal class ConfigValidationService(
                         )
                     )
                 } else {
-                    validations.add(checkIsAbsolute(safePathOf(connector.sourceArchiveFolder!!)))
+                    validations.add(checkIsAbsolute(connector.sourceArchiveFolder!!))
                 }
             }
             for (docTypeFolder in connector.docTypeFolders.values) {
                 if (docTypeFolder.sourceFolder != null) {
-                    validations.add(checkIsAbsolute(safePathOf(docTypeFolder.sourceFolder!!)))
+                    validations.add(checkIsAbsolute(docTypeFolder.sourceFolder!!))
                 }
                 if (docTypeFolder.targetFolder != null) {
-                    validations.add(checkIsAbsolute(safePathOf(docTypeFolder.targetFolder!!)))
+                    validations.add(checkIsAbsolute(docTypeFolder.targetFolder!!))
                 }
             }
         }
@@ -131,20 +134,21 @@ internal class ConfigValidationService(
         )
     }
 
-    private fun checkIsAbsolute(path: Path?) = if (path == null) {
-        ValidationResult.Failure(
-            listOf(
-                ValidationDetail.PathDetail(path = "invalid", messageKey = DIRECTORY_NOT_FOUND)
-            )
-        )
-    } else if (path.isAbsolute) {
-        ValidationResult.Success
-    } else {
-        ValidationResult.Failure(
-            listOf(
-                ValidationDetail.PathDetail(path = path.toString(), messageKey = DIRECTORY_NEEDS_ABSOLUTE_PATH)
-            )
-        )
+    private fun checkIsAbsolute(path: String?): ValidationResult {
+        val safePathValidation = safePathValidation(path)
+        return if (safePathValidation.isSuccessAndPathNotNull(path)) {
+            safePathValidation + if (Path.of(path).isAbsolute) {
+                ValidationResult.Success
+            } else {
+                ValidationResult.Failure(
+                    listOf(
+                        ValidationDetail.PathDetail(path = path, messageKey = DIRECTORY_NEEDS_ABSOLUTE_PATH)
+                    )
+                )
+            }
+        } else {
+            safePathValidation
+        }
     }
 
     fun validateConnectorIsPresent(customer: List<DTOs.CdrClientConfig.Connector>?): ValidationResult =
@@ -249,6 +253,22 @@ internal class ConfigValidationService(
         }
     }
 
+    private fun safePathValidation(pathString: String?): ValidationResult = when (pathString) {
+        null -> ValidationResult.Failure(
+            listOf(ValidationDetail.PathDetail(path = "NULL", messageKey = ILLEGAL_VALUE))
+        )
+
+        else -> runCatching {
+            Path.of(pathString)
+            ValidationResult.Success
+        }.getOrElse {
+            logger.warn { "Invalid path string: [$pathString], error: ${it.message}" }
+            ValidationResult.Failure(
+                listOf(ValidationDetail.PathDetail(path = pathString, messageKey = ILLEGAL_VALUE))
+            )
+        }
+    }
+
     /**
      * Validates a directory path provided as a String.
      * Does NOT trim whitespace - validates the path exactly as provided.
@@ -275,14 +295,9 @@ internal class ConfigValidationService(
         }
 
         logger.debug { "Validating directory path: [$pathString]" }
-        val path = safePathOf(pathString)
-        return if (path == null) {
-            // Invalid path (e.g., trailing spaces on Windows) - return the original string in the error
-            logger.debug { "Path is null (invalid path string): [$pathString]" }
-            ValidationResult.Failure(
-                listOf(ValidationDetail.PathDetail(path = pathString, messageKey = DIRECTORY_NOT_FOUND))
-            )
-        } else {
+        val safePathValidation = safePathValidation(pathString)
+        return if (safePathValidation.isSuccessAndPathNotNull((pathString))) {
+            val path = Path.of(pathString)
             logger.debug { "Path is valid: [${path}], absolute: [${path.toAbsolutePath()}], root: [${path.root}]" }
 
             val pathExistsValidation = checkPathExists(path)
@@ -291,6 +306,8 @@ internal class ConfigValidationService(
                 handleNonExistingPath(path)
             }
             pathExistsValidation + pathIsDirectory(path) + pathIsReadAndWritable(path)
+        } else {
+            safePathValidation
         }
     }
 
@@ -675,4 +692,10 @@ internal class ConfigValidationService(
         private const val WINDOWS_DRIVE_ROOT_LENGTH = 3
     }
 
+}
+
+@OptIn(ExperimentalContracts::class)
+private fun ValidationResult.isSuccessAndPathNotNull(path: Any?): Boolean {
+    contract { returns(true) implies (path != null) }
+    return this is ValidationResult.Success
 }

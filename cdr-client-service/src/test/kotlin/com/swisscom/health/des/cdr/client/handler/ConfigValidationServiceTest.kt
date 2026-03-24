@@ -123,7 +123,7 @@ internal class ConfigValidationServiceTest {
         val validationResult: DTOs.ValidationResult = configValidationService.validateAllConfigurationItems(clientConfig.toDto())
 
         assertInstanceOf<DTOs.ValidationResult.Failure>(validationResult)
-        assertEquals(1, validationResult.validationDetails.size)
+        assertEquals(3, validationResult.validationDetails.size)
         validationResult.validationDetails.first().let { validationDetail ->
             assertInstanceOf<DTOs.ValidationDetail.PathDetail>(validationDetail)
             assertEquals(filePath.toString(), validationDetail.path)
