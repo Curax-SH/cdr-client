@@ -99,7 +99,7 @@ internal class ConfigValidationService(
             validations.add(checkIsAbsolute(connector.sourceFolder))
             validations.add(checkIsAbsolute(connector.targetFolder))
             if (connector.sourceErrorFolder != null) {
-                validations.add(checkIsAbsolute(connector.sourceErrorFolder!!))
+                validations.add(checkIsAbsolute(connector.sourceErrorFolder))
             }
             if (connector.sourceArchiveEnabled) {
                 if (connector.sourceArchiveFolder == null) {
@@ -114,15 +114,15 @@ internal class ConfigValidationService(
                         )
                     )
                 } else {
-                    validations.add(checkIsAbsolute(connector.sourceArchiveFolder!!))
+                    validations.add(checkIsAbsolute(connector.sourceArchiveFolder))
                 }
             }
             for (docTypeFolder in connector.docTypeFolders.values) {
                 if (docTypeFolder.sourceFolder != null) {
-                    validations.add(checkIsAbsolute(docTypeFolder.sourceFolder!!))
+                    validations.add(checkIsAbsolute(docTypeFolder.sourceFolder))
                 }
                 if (docTypeFolder.targetFolder != null) {
-                    validations.add(checkIsAbsolute(docTypeFolder.targetFolder!!))
+                    validations.add(checkIsAbsolute(docTypeFolder.targetFolder))
                 }
             }
         }
