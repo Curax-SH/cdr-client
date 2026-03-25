@@ -26,7 +26,8 @@
         "status": 200,
         "headers": {
           "Content-Type": "*/*",
-          "cdr-document-uuid": "{{randomValue length=10 type='ALPHANUMERIC'}}"
+          "cdr-document-uuid": "{{randomValue length=10 type='ALPHANUMERIC'}}",
+          "cdr-document-prefix": "{{randomValue length=12 type='NUMERIC'}}_{{randomValue length=12 type='NUMERIC'}}"
         },
         "base64Body": "IlRoZSBjb3Ntb3MgaXMgd2l0aGluIHVzLiBXZSBhcmUgbWFkZSBvZiBzdGFyLXN0dWZmLiBXZSBhcmUgYSB3YXkgZm9yIHRoZSB1bml2ZXJzZSB0byBrbm93IGl0c2VsZi4iIC0gKENhcmwgU2FnYW4p"
       }

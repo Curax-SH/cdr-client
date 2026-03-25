@@ -335,7 +335,8 @@ internal class EventPushFileHandlingTest {
         val uuid1 = "550e8400-e29b-41d4-a716-446655440001"
         val uuid2 = "550e8400-e29b-41d4-a716-446655440002"
         val uuid3 = "550e8400-e29b-41d4-a716-446655440003"
-        val payloadWithThreeUuids = sourceDir.resolve("document_${uuid1}_${uuid2}_${uuid3}.xml.tmp")
+        val prefix = "000000023000_000020004000"
+        val payloadWithThreeUuids = sourceDir.resolve("${prefix}_${uuid1}_${uuid2}_${uuid3}.xml.tmp")
         payloadWithThreeUuids.outputStream().use { it.write("Document content".toByteArray()) }
 
         assertEquals(1, sourceDir.listDirectoryEntries().size)
@@ -364,8 +365,8 @@ internal class EventPushFileHandlingTest {
         assertNotEqual(uuid3.lowercase(), secondUuid, "Second UUID should be different from original third UUID")
 
         // Verify filename structure is maintained
-        assertTrue(errorFileName.startsWith("document_$uuid1"), "Filename should start with document_ and first UUID")
-        assertTrue(errorFileName.contains("_"), "Filename should have UUID separator")
+        assertTrue(errorFileName.startsWith("${prefix}_$uuid1"), "Filename should start with ${prefix}_ and first UUID")
+        assertTrue(errorFileName.count{ it == '_'} >= 2, "Filename should have UUID separator")
 
         // Verify response file was also created
         val responseFiles = errorDir.listDirectoryEntries("*.response").toList()

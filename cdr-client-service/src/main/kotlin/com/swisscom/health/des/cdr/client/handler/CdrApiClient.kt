@@ -223,6 +223,7 @@ internal class CdrApiClient(
      * @return the result of the HTTP get translated into a [DownloadDocumentResult]
      * @see acknowledgeDocumentDownload
      */
+    @Suppress("CyclomaticComplexMethod")
     fun downloadDocument(connectorId: String, mode: CdrClientConfig.Mode, traceId: String): DownloadDocumentResult = runCatching {
         logger.debug { "Request file start" }
         val queryParameters = LinkedMultiValueMap<String, String>().apply {
@@ -244,7 +245,8 @@ internal class CdrApiClient(
 
                     response.isSuccessful -> {
                         val pullResultId: String = requireNotNull(response.header(PULL_RESULT_ID_HEADER)) { error("No pull result id found in response") }
-                        val tmpFile: Path = cdrClientConfig.localFolder.path.resolve("$pullResultId.tmp")
+                        val documentPrefix: String = response.header(PULL_RESULT_FILE_PREFIX_HEADER)?.let { "${it}_" } ?: ""
+                        val tmpFile: Path = cdrClientConfig.localFolder.path.resolve("$documentPrefix$pullResultId.tmp")
                             .apply {
                                 outputStream().use { os ->
                                     response.body.byteStream().use { iss -> iss.copyTo(os) }
