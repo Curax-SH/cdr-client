@@ -9,8 +9,8 @@ client:
   schedule-delay: PT10M
   files-in-progress-cache-size: 10MB
   connection-timeout-ms: 5000
-  #we want the read timeout to be longer than a connection timeout between backend and db
-  read-timeout-ms: 35000
+  #we want the read timeout to be longer than a connection timeout between backend and db, and give the function time to startup
+  read-timeout-ms: 90000
   # max number of connectors to be processed in parallel, one download per connector at any given time
   pull-thread-pool-size: 5
   # max number of parallel document uploads (independent of connector)
