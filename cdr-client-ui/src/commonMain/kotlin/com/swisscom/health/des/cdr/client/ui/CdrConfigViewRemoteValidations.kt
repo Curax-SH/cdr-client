@@ -12,6 +12,17 @@ import java.nio.file.Path
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * Safely compares two path strings, handling invalid paths (e.g., with trailing spaces on Windows).
+ * Returns true if the paths are equal, false otherwise or if either path is invalid.
+ */
+private fun pathsEqual(path1: String, path2: String): Boolean = runCatching {
+    Path.of(path1) == Path.of(path2)
+}.getOrElse {
+    // If either path is invalid (e.g., trailing spaces on Windows), fall back to string comparison
+    path1 == path2
+}
+
 private typealias ValidationErrorHandler = suspend (Map<String, Any>, DomainObjects.ConfigurationItem) -> DTOs.ValidationResult
 private typealias ValidationSuccessHandler<T> = suspend (T, DomainObjects.ConfigurationItem) -> DTOs.ValidationResult
 
@@ -99,7 +110,7 @@ internal class CdrConfigViewRemoteValidations(
                     // check if any path validation error is matching the path we are validating; if yes, return the failure
                     if (validationDetails
                             .any { validationDetail: DTOs.ValidationDetail ->
-                                validationDetail is DTOs.ValidationDetail.PathDetail && path != null && Path.of(validationDetail.path) == Path.of(path)
+                                validationDetail is DTOs.ValidationDetail.PathDetail && path != null && pathsEqual(validationDetail.path, path)
                             }
                     )
                         this

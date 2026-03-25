@@ -111,6 +111,7 @@ class DTOs {
     enum class ValidationMessageKey {
         NOT_A_DIRECTORY,
         DIRECTORY_NOT_FOUND,
+        ILLEGAL_VALUE,
         NOT_READ_WRITABLE,
         LOCAL_DIR_OVERLAPS_WITH_SOURCE_DIRS,
         LOCAL_DIR_OVERLAPS_WITH_TARGET_DIRS,
