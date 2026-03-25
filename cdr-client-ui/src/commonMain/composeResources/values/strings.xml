@@ -102,4 +102,5 @@
     <string name="error_folder_needs_absolute_path_error">Directories need to be defined with an absolute path (e.g. C:\home\myuser\archive)</string>
     <string name="error_proxy_url_must_start_with_http_or_https">Proxy URL must start with http:// or https://</string>
     <string name="error_proxy_url_invalid_format">Invalid proxy URL format</string>
+    <string name="error_illegal_value">Value is not valid/can't be used here</string>
 </resources>

@@ -16,9 +16,9 @@ private val logger = KotlinLogging.logger {}
  * Safely compares two path strings, handling invalid paths (e.g., with trailing spaces on Windows).
  * Returns true if the paths are equal, false otherwise or if either path is invalid.
  */
-private fun pathsEqual(path1: String, path2: String): Boolean = try {
+private fun pathsEqual(path1: String, path2: String): Boolean = runCatching {
     Path.of(path1) == Path.of(path2)
-} catch (_: java.nio.file.InvalidPathException) {
+}.getOrElse {
     // If either path is invalid (e.g., trailing spaces on Windows), fall back to string comparison
     path1 == path2
 }

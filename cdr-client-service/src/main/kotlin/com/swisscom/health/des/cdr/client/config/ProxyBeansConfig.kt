@@ -34,7 +34,7 @@ internal class ProxyBeansConfig {
             ).toString()
         }.getOrElse {
             // Fallback: redact anything before the @ if present, otherwise return original
-            rawUrl.replace(Regex("^[^:]+://[^@]+@"), "<redacted>@")
+            rawUrl.replace(Regex("^.*?@"), "<redacted>@")
         }
     }
 
