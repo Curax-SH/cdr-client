@@ -44,7 +44,7 @@ import kotlin.io.path.isWritable
 private val logger = KotlinLogging.logger {}
 
 @Service
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LargeClass")
 internal class ConfigValidationService(
     private val config: CdrClientConfig
 ) {
@@ -240,16 +240,25 @@ internal class ConfigValidationService(
             )
 
     /**
-     * Safely creates a Path from a string and handling InvalidPathException.
-     * Use this for paths from configuration files where accidental whitespace should be ignored.
-     * Returns null if the path string is invalid (e.g., contains illegal characters on Windows).
+     * Result of attempting to convert a configured path string into a Path.
+     * Use this from validation code so callers can decide how to present parse failures
+     * rather than silently dropping the values.
      */
-    private fun safePathOf(pathString: String?): Path? = pathString?.let {
-        runCatching {
-            Path.of(pathString)
-        }.getOrElse {
-            logger.warn { "Invalid path string: [$pathString], error: ${it.message}" }
-            null
+    private sealed class SafePathOfResult {
+        data class Success(val path: Path) : SafePathOfResult()
+        data class Failure(val validation: ValidationResult) : SafePathOfResult()
+    }
+
+    /**
+     * Attempts to create a Path from the provided string. Returns a sealed result containing
+     * either the parsed Path or a ValidationResult describing the failure.
+     */
+    private fun safePathOf(pathString: String?): SafePathOfResult {
+        val safePathValidationResult = safePathValidation(pathString)
+        return when {
+            safePathValidationResult.isSuccessAndPathNotNull(pathString) -> SafePathOfResult.Success(Path.of(pathString))
+
+            else -> SafePathOfResult.Failure(safePathValidationResult)
         }
     }
 
@@ -298,14 +307,16 @@ internal class ConfigValidationService(
         val safePathValidation = safePathValidation(pathString)
         return if (safePathValidation.isSuccessAndPathNotNull((pathString))) {
             val path = Path.of(pathString)
-            logger.debug { "Path is valid: [${path}], absolute: [${path.toAbsolutePath()}], root: [${path.root}]" }
+            logger.debug { "Path can be handled by the system: [${path}], absolute: [${path.toAbsolutePath()}], root: [${path.root}]" }
 
             val pathExistsValidation = checkPathExists(path)
             // Try to get more information about why the path might not be accessible
-            if (pathExistsValidation != ValidationResult.Success) {
+            if (pathExistsValidation == ValidationResult.Success) {
+                pathExistsValidation + pathIsDirectory(path) + pathIsReadAndWritable(path)
+            } else {
                 handleNonExistingPath(path)
+                pathExistsValidation
             }
-            pathExistsValidation + pathIsDirectory(path) + pathIsReadAndWritable(path)
         } else {
             safePathValidation
         }
@@ -400,21 +411,37 @@ internal class ConfigValidationService(
 
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun validateDirectoryOverlap(config: DTOs.CdrClientConfig): ValidationResult {
+        val parseFailures = mutableListOf<ValidationResult>()
+
         fun getAllBaseSourceFolders(): List<Path> = config.customer.mapNotNull { connector ->
-            safePathOf(connector.sourceFolder)
-                ?.also {
+            when (val res = safePathOf(connector.sourceFolder)) {
+                is SafePathOfResult.Success -> {
                     logger.debug {
-                        "connector [${connector.connectorId}-${connector.mode}] base source folder: [${connector.sourceFolder}]," +
-                                " base error folder: [${connector.sourceErrorFolder}]"
+                        "connector [${connector.connectorId}-${connector.mode}] base source folder: [${connector.sourceFolder}], " +
+                                "base error folder: [${connector.sourceErrorFolder}]"
                     }
+                    res.path
                 }
+
+                is SafePathOfResult.Failure -> {
+                    parseFailures.add(res.validation)
+                    null
+                }
+            }
         }
 
         fun getAllBaseTargetFolders(): List<Path> = config.customer.mapNotNull { connector ->
-            safePathOf(connector.targetFolder)
-                ?.also {
+            when (val res = safePathOf(connector.targetFolder)) {
+                is SafePathOfResult.Success -> {
                     logger.debug { "connector [${connector.connectorId}-${connector.mode}] base target folder: [${connector.targetFolder}]" }
+                    res.path
                 }
+
+                is SafePathOfResult.Failure -> {
+                    parseFailures.add(res.validation)
+                    null
+                }
+            }
         }
 
         fun effectiveSourceFolder(docTypeFolders: DTOs.CdrClientConfig.Connector.DocTypeFolders, sourceFolder: Path): Path? =
@@ -432,8 +459,12 @@ internal class ConfigValidationService(
             }
             .flatMap { (sourceFolder, docTypeFolders) ->
                 docTypeFolders.mapNotNull {
-                    safePathOf(sourceFolder)?.let { sourcePath ->
-                        effectiveSourceFolder(sourceFolder = sourcePath, docTypeFolders = it)
+                    when (val res = safePathOf(sourceFolder)) {
+                        is SafePathOfResult.Success -> effectiveSourceFolder(docTypeFolders = it, sourceFolder = res.path)
+                        is SafePathOfResult.Failure -> {
+                            parseFailures.add(res.validation)
+                            null
+                        }
                     }
                 }
             }
@@ -442,8 +473,12 @@ internal class ConfigValidationService(
             .map { connector -> connector.targetFolder to connector.docTypeFolders.values }
             .flatMap { (targetFolder, docTypeFolders) ->
                 docTypeFolders.mapNotNull {
-                    safePathOf(targetFolder)?.let { targetPath ->
-                        effectiveTargetFolder(targetFolder = targetPath, docTypeFolders = it)
+                    when (val res = safePathOf(targetFolder)) {
+                        is SafePathOfResult.Success -> effectiveTargetFolder(docTypeFolders = it, targetFolder = res.path)
+                        is SafePathOfResult.Failure -> {
+                            parseFailures.add(res.validation)
+                            null
+                        }
                     }
                 }
             }
@@ -451,9 +486,29 @@ internal class ConfigValidationService(
         fun getSourceErrorFolder(): List<Path> = config.customer
             .mapNotNull { connector ->
                 val effectiveErrorPaths: Path? = when (connector.sourceErrorFolder) {
-                    null -> safePathOf(connector.sourceFolder)?.resolve(ERROR_DIR_NAME)
-                    connector.sourceFolder -> safePathOf(connector.sourceFolder)?.resolve(ERROR_DIR_NAME)
-                    else -> safePathOf(connector.sourceErrorFolder!!)
+                    null -> when (val res = safePathOf(connector.sourceFolder)) {
+                        is SafePathOfResult.Success -> res.path.resolve(ERROR_DIR_NAME)
+                        is SafePathOfResult.Failure -> {
+                            parseFailures.add(res.validation)
+                            null
+                        }
+                    }
+
+                    connector.sourceFolder -> when (val res = safePathOf(connector.sourceFolder)) {
+                        is SafePathOfResult.Success -> res.path.resolve(ERROR_DIR_NAME)
+                        is SafePathOfResult.Failure -> {
+                            parseFailures.add(res.validation)
+                            null
+                        }
+                    }
+
+                    else -> when (val res = safePathOf(connector.sourceErrorFolder!!)) {
+                        is SafePathOfResult.Success -> res.path
+                        is SafePathOfResult.Failure -> {
+                            parseFailures.add(res.validation)
+                            null
+                        }
+                    }
                 }
 
                 effectiveErrorPaths?.also {
@@ -466,15 +521,29 @@ internal class ConfigValidationService(
         fun getSourceArchiveFolders(): List<Path> = config.customer
             .mapNotNull { connector ->
                 connector.sourceArchiveFolder?.let { archiveFolder ->
-                    safePathOf(archiveFolder)?.also { archivePath ->
-                        logger.debug {
-                            "connector [${connector.connectorId}-${connector.mode}] source archive folder: [$archivePath]"
+                    when (val res = safePathOf(archiveFolder)) {
+                        is SafePathOfResult.Success -> {
+                            logger.debug {
+                                "connector [${connector.connectorId}-${connector.mode}] source archive folder: [${res.path}]"
+                            }
+                            res.path
+                        }
+
+                        is SafePathOfResult.Failure -> {
+                            parseFailures.add(res.validation)
+                            null
                         }
                     }
                 }
             }.distinct()
 
-        val localDirectory: List<Path> = listOfNotNull(safePathOf(config.localFolder))
+        val localDirectory: List<Path> = when (val res = safePathOf(config.localFolder)) {
+            is SafePathOfResult.Success -> listOf(res.path)
+            is SafePathOfResult.Failure -> {
+                parseFailures.add(res.validation)
+                emptyList()
+            }
+        }
         val baseSourceFolders: List<Path> = getAllBaseSourceFolders()
         val allSourceTypeFolders: List<Path> = getAllSourceDocTypeFolders()
         val errorFolders: List<Path> = getSourceErrorFolder()
@@ -596,12 +665,15 @@ internal class ConfigValidationService(
                     }
                 }
 
-        return localDirSourceDirsOverlap +
+        val overlapResult = localDirSourceDirsOverlap +
                 localDirTargetDirsOverlap +
                 sourceDirsOverlap +
                 targetDirsOverlapWithSourceDirs +
                 errorFolderNameOverlap +
                 errorFolderOverlap
+
+        val parseFailureCombined = parseFailures.fold(ValidationResult.Success as ValidationResult) { acc, v -> acc + v }
+        return overlapResult + parseFailureCombined
     }
 
     fun validateCredentialValues(credentials: DTOs.CdrClientConfig.IdpCredentials): ValidationResult {
