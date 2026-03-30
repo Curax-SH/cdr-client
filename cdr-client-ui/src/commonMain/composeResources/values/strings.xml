@@ -11,6 +11,13 @@
     <string name="label_client_status">Client status</string>
     <string name="label_cdr_api_host">curaLINE host</string>
     <string name="label_cdr_api_host_placeholder">Fully qualified domain name of the curaLINE host, e.g. 'cdr.health.swisscom.ch'</string>
+    <string name="label_proxy_url">Proxy URL</string>
+    <string name="label_proxy_url_placeholder">http://proxy.example.com:8080 (leave empty for no proxy)</string>
+    <string name="label_proxy_username">Proxy Username</string>
+    <string name="label_proxy_username_placeholder">Username for proxy authentication (leave empty if not required)</string>
+    <string name="label_proxy_password">Proxy Password</string>
+    <string name="label_proxy_password_placeholder">Password for proxy authentication (leave empty if not required)</string>
+    <string name="label_advanced_settings">Advanced Settings</string>
     <string name="label_enable_client_service">Client Service</string>
     <string name="label_enable_client_service_subtitle">Start synchronizing your documents</string>
     <string name="label_enable_document_archive">Document Archive</string>
@@ -26,6 +33,7 @@
     <string name="label_client_idp_settings_client_secret_renewal">Automatic Secret Renewal</string>
     <string name="label_client_idp_settings_client_secret_renewal_subtitle">If enabled automatically renews the client secret every 365 days</string>
     <string name="label_client_idp_settings_client_secret_renewal_timestamp">Last client secret renewal occurred at</string>
+    <string name="label_validate_idp_credentials_info">Note: This test uses the currently saved proxy settings. If you changed the proxy URL, save the configuration first before testing.</string>
     <string name="label_client_local_folder">Temporary download directory</string>
     <string name="label_client_local_folder_placeholder">curaLINE client temporary download directory</string>
     <string name="label_client_file_busy_strategy">File busy test strategy</string>
@@ -92,4 +100,7 @@
     <string name="error_folder_name_used">Using the name 'error' for a directory is only allowed for error directories</string>
     <string name="error_folder_overlaps_non_error">Error folders must not overlap with non-error directories</string>
     <string name="error_folder_needs_absolute_path_error">Directories need to be defined with an absolute path (e.g. C:\home\myuser\archive)</string>
+    <string name="error_proxy_url_must_start_with_http_or_https">Proxy URL must start with http:// or https://</string>
+    <string name="error_proxy_url_invalid_format">Invalid proxy URL format</string>
+    <string name="error_illegal_value">Value is not valid/can't be used here</string>
 </resources>

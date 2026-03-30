@@ -421,7 +421,8 @@ internal class WebOperationsTest {
             ),
             fileBusyTestInterval = Duration.ofSeconds(1L),
             fileBusyTestTimeout = Duration.ofSeconds(1L),
-            fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY)
+            fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
+            proxyConfig = null,
         )
     }
 }

@@ -1,6 +1,7 @@
 package com.swisscom.health.des.cdr.client.http
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.Constants.SHUTDOWN_DELAY
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.CREDENTIAL_VALIDATION_FAILED
@@ -44,7 +45,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
-import java.nio.file.Path
 import java.time.Instant
 
 private val logger = KotlinLogging.logger {}
@@ -139,14 +139,16 @@ internal class WebOperations(
      * query parameter and their results are combined.
      *
      * @param config the CDR Client configuration to use for validating single use of directories
-     * @param directory the directory to validate
+     * @param directory the directory to validate (as a String to handle invalid paths gracefully)
      * @param validations the list of validation types to perform on the directory
      * @return a [DTOs.ValidationResult] indicating the result of the validation
      */
     @PutMapping("api/validate-directory")
     internal suspend fun validateDirectory(
         @RequestBody config: DTOs.CdrClientConfig,
-        @RequestParam(name = "dir") directory: Path,
+        // don't use java.nio.file.Path here to allow the endpoint to handle invalid paths (e.g., with trailing spaces on Windows) gracefully
+        // and return validation errors instead of throwing exceptions
+        @RequestParam(name = "dir") directory: String,
         @RequestParam(name = "validation") validations: List<DomainObjects.ValidationType>,
     ): ResponseEntity<ValidationResult> = runCatching {
         logger.debug { "validating dir: '$directory', validations: '$validations'" }
@@ -199,6 +201,15 @@ internal class WebOperations(
                 }
             }
             logger.trace { "validating credentials" }
+            logger.info {
+                val proxy = config.proxyConfig
+                if (proxy != null && proxy.url.value != EMPTY_STRING) {
+                    "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' " +
+                            "with proxy config: ${proxy.url}"
+                } else {
+                    "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' (no proxy configured)"
+                }
+            }
 
             authService.getNewAccessToken(idpCredentials.toCdrClientConfig(), URI(correctedIdpEndpoint).toURL(), false)
         }
@@ -214,7 +225,7 @@ internal class WebOperations(
                     validationResult += credentialValidationFailure
                 }
             }
-            logger.debug { "Credentials validation completed with result: '$validationResult'" }
+            logger.info { "Credentials validation completed with result: '$validationResult'" }
             ResponseEntity.ok(validationResult)
         },
         onFailure = { e ->
@@ -231,6 +242,22 @@ internal class WebOperations(
             )
         )
     )
+
+    @PutMapping("api/validate-proxy")
+    internal suspend fun validateProxy(
+        @RequestParam(name = "url") url: String,
+    ): ResponseEntity<ValidationResult> = runCatching {
+        logger.debug { "validating mode for proxy: '$url'" }
+        ResponseEntity
+            .ok(
+                configValidationService.validateProxySetting(url)
+            )
+    }.getOrElse { error: Throwable ->
+        when (error) {
+            is WebOperationsAdvice.ServerError, is WebOperationsAdvice.BadRequest -> throw error
+            else -> throw WebOperationsAdvice.ServerError("Failed to validate proxy settings", error)
+        }
+    }
 
     //
     // END - (Configuration) Validation Endpoints

@@ -111,6 +111,7 @@ class DTOs {
     enum class ValidationMessageKey {
         NOT_A_DIRECTORY,
         DIRECTORY_NOT_FOUND,
+        ILLEGAL_VALUE,
         NOT_READ_WRITABLE,
         LOCAL_DIR_OVERLAPS_WITH_SOURCE_DIRS,
         LOCAL_DIR_OVERLAPS_WITH_TARGET_DIRS,
@@ -125,7 +126,9 @@ class DTOs {
         CREDENTIAL_VALIDATION_FAILED,
         ERROR_AS_NON_ERROR_FOLDER_NAME_USED,
         ERROR_DIR_OVERLAPS_NON_ERROR_DIR,
-        DIRECTORY_NEEDS_ABSOLUTE_PATH
+        DIRECTORY_NEEDS_ABSOLUTE_PATH,
+        PROXY_URL_MUST_START_WITH_HTTP_OR_HTTPS,
+        PROXY_URL_INVALID_FORMAT
     }
 
 
@@ -187,6 +190,7 @@ class DTOs {
         val fileBusyTestInterval: Duration,
         val fileBusyTestTimeout: Duration,
         val fileBusyTestStrategy: FileBusyTestStrategy,
+        val proxyConfig: ProxyConfig,
     ) {
 
         companion object {
@@ -208,7 +212,24 @@ class DTOs {
                 fileBusyTestTimeout = Duration.ZERO,
                 fileBusyTestStrategy = FileBusyTestStrategy.NEVER_BUSY,
                 retryTemplate = RetryTemplateConfig.EMPTY,
+                proxyConfig = ProxyConfig.EMPTY,
             )
+        }
+
+        @Serializable
+        data class ProxyConfig(
+            val url: String,
+            val username: String,
+            val password: String,
+        ) {
+            companion object {
+                @JvmStatic
+                val EMPTY = ProxyConfig(
+                    url = EMPTY_STRING,
+                    username = EMPTY_STRING,
+                    password = EMPTY_STRING,
+                )
+            }
         }
 
         @Serializable

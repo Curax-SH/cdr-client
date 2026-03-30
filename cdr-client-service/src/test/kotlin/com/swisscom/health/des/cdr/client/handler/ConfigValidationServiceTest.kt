@@ -1,3 +1,5 @@
+@file:Suppress("LargeClass")
+
 package com.swisscom.health.des.cdr.client.handler
 
 import com.swisscom.health.des.cdr.client.common.DTOs
@@ -574,6 +576,35 @@ internal class ConfigValidationServiceTest {
         }
     }
 
+    @OptIn(ExperimentalPathApi::class)
+    @Test
+    fun `validateDirectoriesAreAbsolute should fail when sourceArchiveEnabled is true but archive folder is null`() {
+        val connector = Connector(
+            connectorId = ConnectorId("test-connector-archive-null"),
+            sourceFolder = sourceFolder0,
+            targetFolder = targetFolder0,
+            contentType = "application/xml",
+            mode = CdrClientConfig.Mode.TEST,
+            docTypeFolders = emptyMap(),
+            sourceErrorFolder = null,
+            sourceArchiveFolder = null,
+            sourceArchiveEnabled = true
+        )
+
+        val config = createCdrClientConfig(listOf(connector))
+        val service = ConfigValidationService(config)
+        val result = service.validateDirectoriesAreAbsolute(config.toDto())
+
+        assertInstanceOf<DTOs.ValidationResult.Failure>(result)
+        assertEquals(1, result.validationDetails.size)
+
+        val validationDetail = result.validationDetails.first()
+        assertInstanceOf<DTOs.ValidationDetail.ConfigItemDetail>(validationDetail)
+        val configItemDetail = validationDetail
+        assertEquals(DomainObjects.ConfigurationItem.ARCHIVE_DIRECTORY, configItemDetail.configItem)
+        assertEquals(DTOs.ValidationMessageKey.NOT_A_DIRECTORY, configItemDetail.messageKey)
+    }
+
     private fun createCdrClientConfig(customers: List<Connector>, defaultLocalFolder: Path = localFolder0): CdrClientConfig =
         CdrClientConfig(
             fileSynchronizationEnabled = FileSynchronization.ENABLED,
@@ -614,6 +645,7 @@ internal class ConfigValidationServiceTest {
                 maxDelay = Duration.ofSeconds(5),
                 multiplier = 2.0,
             ),
+            proxyConfig = null,
         )
 
     private fun blueSkyConnectors() = listOf(
@@ -727,6 +759,99 @@ internal class ConfigValidationServiceTest {
             assertEquals(DTOs.ValidationResult.Success, result)
         } finally {
             Files.deleteIfExists(tempDir)
+        }
+    }
+
+    @Test
+    fun `test validation handles path with trailing space gracefully`() {
+        val tempSourceDir = Files.createTempDirectory("testSourceDir")
+        val tempTargetDir = Files.createTempDirectory("testTargetDir")
+        try {
+            // Create connector with valid paths
+            val connector = Connector(
+                connectorId = ConnectorId("test-connector"),
+                sourceFolder = tempSourceDir,
+                targetFolder = tempTargetDir,
+                contentType = "application/xml",
+                mode = CdrClientConfig.Mode.TEST,
+                docTypeFolders = emptyMap(),
+                sourceErrorFolder = null,
+                sourceArchiveFolder = null,
+                sourceArchiveEnabled = false
+            )
+
+            val config = createCdrClientConfig(listOf(connector))
+            val service = ConfigValidationService(config)
+
+            // Now create a DTO with paths that have trailing spaces
+            val configDto = config.toDto()
+            val connectorWithTrailingSpace = configDto.customer.first().copy(
+                sourceFolder = "$tempSourceDir ",
+                targetFolder = "$tempTargetDir "
+            )
+            val configDtoWithTrailingSpace = configDto.copy(
+                customer = listOf(connectorWithTrailingSpace)
+            )
+
+            val result = service.validateAllConfigurationItems(configDtoWithTrailingSpace)
+
+            // The paths with trailing spaces should FAIL validation
+            // On Windows: InvalidPathException -> null path -> directory not found
+            // On Unix: Path created with trailing space that doesn't exist -> directory not found
+            assertInstanceOf<DTOs.ValidationResult.Failure>(result)
+            val failure = result
+            assertTrue(failure.validationDetails.isNotEmpty())
+            // Should have at least one path detail with directory not found
+            assertTrue(failure.validationDetails.any {
+                it is DTOs.ValidationDetail.PathDetail &&
+                it.messageKey == DTOs.ValidationMessageKey.DIRECTORY_NOT_FOUND
+            })
+        } finally {
+            Files.deleteIfExists(tempSourceDir)
+            Files.deleteIfExists(tempTargetDir)
+        }
+    }
+
+    @Test
+    fun `test validation handles UNC paths without NullPointerException`() {
+        val tempSourceDir = Files.createTempDirectory("testSourceDir")
+        val tempTargetDir = Files.createTempDirectory("testTargetDir")
+        try {
+            // Create connector with a UNC path (this simulates Windows network share paths)
+            val connector = Connector(
+                connectorId = ConnectorId("test-connector"),
+                sourceFolder = tempSourceDir,
+                targetFolder = tempTargetDir,
+                contentType = "application/xml",
+                mode = CdrClientConfig.Mode.TEST,
+                docTypeFolders = emptyMap(),
+                sourceErrorFolder = null,
+                sourceArchiveFolder = null,
+                sourceArchiveEnabled = false
+            )
+
+            val config = createCdrClientConfig(listOf(connector))
+            val service = ConfigValidationService(config)
+
+            // Create a DTO with a UNC path (Windows network share)
+            val configDto = config.toDto()
+            val connectorWithUncPath = configDto.customer.first().copy(
+                sourceFolder = """\\cdrintstpublic.file.core.windows.net\test-file-share"""
+            )
+            val configDtoWithUncPath = configDto.copy(
+                customer = listOf(connectorWithUncPath)
+            )
+
+            // This should not throw NullPointerException when checking fileName
+            // It should return a validation error (directory not found)
+            val result = service.validateAllConfigurationItems(configDtoWithUncPath)
+
+            // The UNC path likely won't exist, so we expect a failure
+            // The important thing is that it doesn't crash with NullPointerException
+            assertInstanceOf<DTOs.ValidationResult.Failure>(result)
+        } finally {
+            Files.deleteIfExists(tempSourceDir)
+            Files.deleteIfExists(tempTargetDir)
         }
     }
 }

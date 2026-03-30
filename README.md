@@ -82,9 +82,9 @@ the CDR website.
 
 For each connector, one file after the other is pulled. Each file is written into a temporary directory defined as
 'local-folder'. The file is named after the received 'cdr-document-uuid' header that is a unique identifier created by
-the CDR API. After saving the file to the temporary folder, a delete request for the given 'cdr-document-uuid' is sent
-to the CDR API. After successfully deleting the file in the CDR API, the file is moved to the connector defined
-'target-folder'.
+the CDR API and prefixed with the received 'cdr-document-prefix' header. After saving the file to the temporary folder, 
+a delete request for the given 'cdr-document-uuid' is sent to the CDR API. After successfully deleting the file in 
+the CDR API, the file is moved to the connector defined 'target-folder'.
 
 The temporary directories need to be monitored to make sure that no files get stranded there (should only happen if the
 move to the destination directory is failing).

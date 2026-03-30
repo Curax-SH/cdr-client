@@ -18,6 +18,9 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.retry.support.RetryTemplate
 import java.io.IOException
+import java.net.Authenticator
+import java.net.PasswordAuthentication
+import java.net.Proxy
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -34,20 +37,72 @@ private val logger = KotlinLogging.logger {}
 internal class CdrClientContext {
 
     /**
+     * Configures system-wide proxy authenticator for Nimbus JWT HTTP client.
+     * This is required because Nimbus uses Java's built-in HttpURLConnection which relies on
+     * the system-wide Authenticator for proxy authentication.
+     */
+    @Bean(name = ["systemProxyAuthenticator"])
+    fun systemProxyAuthenticator(proxyCredentials: ProxyCredentials?): Authenticator {
+        val auth = object : Authenticator() {
+            override fun getPasswordAuthentication(): PasswordAuthentication? {
+                return if (requestorType == RequestorType.PROXY && proxyCredentials != null) {
+                    logger.debug { "Providing proxy authentication for '${requestingHost}:${requestingPort}'" }
+                    PasswordAuthentication(
+                        proxyCredentials.username.value,
+                        proxyCredentials.password.value.toCharArray()
+                    )
+                } else {
+                    null
+                }
+            }
+        }
+        Authenticator.setDefault(auth)
+        if (proxyCredentials != null) {
+            logger.info { "Configured system-wide proxy authenticator for user: '${proxyCredentials.username.value}'" }
+        } else {
+            logger.debug { "No proxy credentials configured for system-wide authenticator" }
+        }
+        return auth
+    }
+
+    /**
      * Creates and returns an instance of the OkHttpClient.
      *
      * @param builder The OkHttpClient.Builder used to build the client.
      * @return The fully constructed OkHttpClient.
      */
     @Bean
+    @Suppress("LongParameterList", "NestedBlockDepth")
     fun okHttpClient(
         builder: OkHttpClient.Builder,
         oAuth2AuthNService: OAuth2AuthNService,
         @Value($$"${client.connection-timeout-ms}") timeout: Long,
-        @Value($$"${client.read-timeout-ms}") readTimeout: Long
+        @Value($$"${client.read-timeout-ms}") readTimeout: Long,
+        proxy: Proxy?,
+        proxyCredentials: ProxyCredentials?
     ): OkHttpClient =
         builder
             .connectTimeout(timeout, TimeUnit.MILLISECONDS).readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+            .apply {
+                if (proxy != null) {
+                    proxy(proxy)
+                    logger.info { "OkHttp configured to use an HTTP proxy" }
+
+                    if (proxyCredentials != null) {
+                        val username = proxyCredentials.username.value
+                        val password = proxyCredentials.password.value
+                        if (username.isNotBlank() && password.isNotBlank()) {
+                            proxyAuthenticator { _, response ->
+                                val credential = okhttp3.Credentials.basic(username, password)
+                                response.request.newBuilder()
+                                    .header("Proxy-Authorization", credential)
+                                    .build()
+                            }
+                            logger.info { "Configured OkHttp with proxy authentication" }
+                        }
+                    }
+                }
+            }
             .addInterceptor { chain ->
                 oAuth2AuthNService.getAccessToken()
                     .let { authNResponse ->
@@ -185,6 +240,8 @@ internal class CdrClientContext {
         FileBusyTester.NeverBusy.also { logger.warn { "No file-busy-test strategy defined, defaulting to 'NEVER_BUSY'" } }
 
 }
+
+
 
 internal class HttpServerErrorException(message: String, val statusCode: Int, val responseBody: String) : RuntimeException(message, null, false, false) {
     override fun toString(): String {

@@ -1,5 +1,8 @@
+@file:Suppress("TooManyFunctions")
+
 package com.swisscom.health.des.cdr.client.config
 
+import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig.RetryTemplateConfig
 import com.swisscom.health.des.cdr.client.xml.DocumentType
@@ -33,8 +36,16 @@ internal fun CdrClientConfig.toDto(): DTOs.CdrClientConfig {
         fileBusyTestInterval = fileBusyTestInterval,
         fileBusyTestTimeout = fileBusyTestTimeout,
         fileBusyTestStrategy = fileBusyTestStrategy.toDto(),
+        proxyConfig = proxyConfig?.toDto() ?: DTOs.CdrClientConfig.ProxyConfig.EMPTY,
     )
 }
+
+internal fun ProxyConfig.toDto(): DTOs.CdrClientConfig.ProxyConfig =
+    DTOs.CdrClientConfig.ProxyConfig(
+        url = url.value,
+        username = username.value,
+        password = password.value,
+    )
 
 internal fun Connector.toDto(): DTOs.CdrClientConfig.Connector {
     fun Map<DocumentType, Connector.DocTypeFolders>.toDto():
@@ -114,7 +125,24 @@ internal fun DTOs.CdrClientConfig.toCdrClientConfig(): CdrClientConfig {
         fileBusyTestInterval = fileBusyTestInterval,
         fileBusyTestTimeout = fileBusyTestTimeout,
         fileBusyTestStrategy = fileBusyTestStrategy.toCdrClientConfig(),
+        proxyConfig = proxyConfig.toCdrClientConfig(),
     )
+}
+
+internal fun DTOs.CdrClientConfig.ProxyConfig.toCdrClientConfig(): ProxyConfig {
+    return if (url.isBlank()) {
+        ProxyConfig(
+            url = ProxyUrl(EMPTY_STRING),
+            username = ProxyUsername(EMPTY_STRING),
+            password = ProxyPassword(EMPTY_STRING),
+        )
+    } else {
+        ProxyConfig(
+            url = ProxyUrl(url),
+            username = ProxyUsername(username),
+            password = ProxyPassword(password),
+        )
+    }
 }
 
 internal fun DTOs.CdrClientConfig.Connector.toCdrClientConfig(): Connector {
@@ -165,7 +193,7 @@ internal fun DTOs.CdrClientConfig.IdpCredentials.toCdrClientConfig(): IdpCredent
         tenantId = TenantId(tenantId),
         clientId = ClientId(clientId),
         clientSecret = ClientSecret(clientSecret),
-        scope = Scope(scope) ,
+        scope = Scope(scope),
         renewCredential = RenewCredential(renewCredential),
         maxCredentialAge = maxCredentialAge,
         lastCredentialRenewalTime = LastCredentialRenewalTime(lastCredentialRenewalTime),

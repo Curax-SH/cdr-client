@@ -4,13 +4,24 @@ import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DomainObjects
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.DIR_READ_WRITABLE
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.DIR_SINGLE_USE
-import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_VALUE
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_OVERLAP
+import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_VALUE
 import com.swisscom.health.des.cdr.client.ui.data.CdrClientApiClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.nio.file.Path
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Safely compares two path strings, handling invalid paths (e.g., with trailing spaces on Windows).
+ * Returns true if the paths are equal, false otherwise or if either path is invalid.
+ */
+private fun pathsEqual(path1: String, path2: String): Boolean = runCatching {
+    Path.of(path1) == Path.of(path2)
+}.getOrElse {
+    // If either path is invalid (e.g., trailing spaces on Windows), fall back to string comparison
+    path1 == path2
+}
 
 private typealias ValidationErrorHandler = suspend (Map<String, Any>, DomainObjects.ConfigurationItem) -> DTOs.ValidationResult
 private typealias ValidationSuccessHandler<T> = suspend (T, DomainObjects.ConfigurationItem) -> DTOs.ValidationResult
@@ -99,7 +110,7 @@ internal class CdrConfigViewRemoteValidations(
                     // check if any path validation error is matching the path we are validating; if yes, return the failure
                     if (validationDetails
                             .any { validationDetail: DTOs.ValidationDetail ->
-                                validationDetail is DTOs.ValidationDetail.PathDetail && path != null && Path.of(validationDetail.path) == Path.of(path)
+                                validationDetail is DTOs.ValidationDetail.PathDetail && path != null && pathsEqual(validationDetail.path, path)
                             }
                     )
                         this
@@ -108,6 +119,23 @@ internal class CdrConfigViewRemoteValidations(
                         DTOs.ValidationResult.Success
                 }
             }
+        }
+
+    /**
+     * Validates that the given proxy URL is either empty or a valid HTTP/HTTPS URL format.
+     *
+     * @param config the proxy URL to validate
+     * @return a [DTOs.ValidationResult] indicating success or failure
+     */
+    internal suspend fun validateProxyUrl(config: DTOs.CdrClientConfig): DTOs.ValidationResult =
+        cdrClientApiClient.validateProxy(
+            config = config,
+            url = config.proxyConfig.url,
+        ).handle(
+            configurationItem = DomainObjects.ConfigurationItem.PROXY_URL,
+            onSuccess = { validationResult: DTOs.ValidationResult, _ -> validationResult }
+        ).run {
+            this
         }
 
     private suspend fun <U> CdrClientApiClient.Result<U>.handle(

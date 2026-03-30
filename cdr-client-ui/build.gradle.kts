@@ -18,6 +18,7 @@ kotlin {
 
     sourceSets {
         val desktopMain by getting
+        val desktopTest by getting
 
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -50,6 +51,12 @@ kotlin {
             // Conveyor auto update control
             implementation(libs.conveyor.control)
             implementation(libs.compose.native.tray)
+        }
+
+        desktopTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.mockk)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

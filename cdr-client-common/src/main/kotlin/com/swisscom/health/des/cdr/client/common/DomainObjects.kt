@@ -25,6 +25,9 @@ class DomainObjects {
         CONNECTOR,
         CONNECTOR_MODE,
         CONNECTOR_ID,
+        PROXY_URL,
+        PROXY_USERNAME,
+        PROXY_PASSWORD,
     }
 
     enum class ValidationType {

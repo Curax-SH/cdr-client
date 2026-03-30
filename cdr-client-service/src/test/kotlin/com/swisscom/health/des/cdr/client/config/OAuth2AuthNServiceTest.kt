@@ -6,6 +6,12 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import java.net.URI
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.TimeUnit
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
@@ -25,13 +31,6 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.retry.support.RetryTemplate
 import java.io.IOException
-import java.net.URI
-import java.time.Duration
-import java.time.Instant
-import java.util.concurrent.TimeUnit
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
-
 
 @ExtendWith(MockKExtension::class)
 @MockKExtension.CheckUnnecessaryStub
@@ -65,7 +64,11 @@ class OAuth2AuthNServiceTest {
         )
         every { config.idpEndpoint } returns URI("http://${idpMock.hostName}:${idpMock.port}/${config.idpCredentials.tenantId.id}/oauth2/v2.0/token").toURL()
 
-        authNService = OAuth2AuthNService(config = config, retryIoErrors = retryIoExceptionsTwice)
+        authNService = OAuth2AuthNService(
+            config = config,
+            retryIoErrors = retryIoExceptionsTwice,
+            proxy = null,
+        )
     }
 
     @Test
@@ -129,7 +132,12 @@ class OAuth2AuthNServiceTest {
 
         assertEquals(OAuth2AuthNService.AuthNState.UNKNOWN, authNService.currentAuthNStateNonBlocking())
 
-        authNService = OAuth2AuthNService(config = config, clock = constantTimeClock, retryIoErrors = retryIoExceptionsTwice)
+        authNService = OAuth2AuthNService(
+            config = config,
+            clock = constantTimeClock,
+            retryIoErrors = retryIoExceptionsTwice,
+            proxy = null,
+        )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
         val authNResponse2: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
@@ -168,7 +176,12 @@ class OAuth2AuthNServiceTest {
 
         assertEquals(OAuth2AuthNService.AuthNState.UNKNOWN, authNService.currentAuthNStateNonBlocking())
 
-        authNService = OAuth2AuthNService(config = config, clock = constantTimeClock, retryIoErrors = retryIoExceptionsTwice)
+        authNService = OAuth2AuthNService(
+            config = config,
+            clock = constantTimeClock,
+            retryIoErrors = retryIoExceptionsTwice,
+            proxy = null,
+        )
 
         val authNResponse1: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }
         val authNResponse2: AuthNResponse = assertDoesNotThrow { authNService.getAccessToken() }

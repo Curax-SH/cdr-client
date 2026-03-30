@@ -18,9 +18,11 @@ import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService.AuthNState.U
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.retry.support.RetryTemplate
 import org.springframework.stereotype.Service
+import org.springframework.context.annotation.DependsOn
 import java.io.IOException
 import java.net.URI
 import java.net.URL
+import java.net.Proxy
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -30,10 +32,11 @@ import kotlin.time.ExperimentalTime
 private val logger = KotlinLogging.logger {}
 
 @Service
+@DependsOn("systemProxyAuthenticator")
 internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
     private val config: CdrClientConfig,
     private val retryIoErrors: RetryTemplate,
-    @Suppress("SpringJavaInjectionPointsAutowiringInspection")
+    private val proxy: Proxy?,
     private val clock: Clock = Clock.System,
 ) {
 
@@ -113,12 +116,19 @@ internal class OAuth2AuthNService @OptIn(ExperimentalTime::class) constructor(
 
         val authNResponse: AuthNResponse =
             runCatching {
+                val httpRequest = request.toHTTPRequest()
+
+                proxy?.let { p ->
+                    httpRequest.proxy = p
+                    logger.debug { "OAuth2 token request will use proxy: '$p'" }
+                }
+
                 if (shouldRetry) {
                     retryIoErrors.execute<HTTPResponse, Throwable> { _ ->
-                        request.toHTTPRequest().send()
+                        httpRequest.send()
                     }.run { TokenResponse.parse(this) }
                 } else {
-                    request.toHTTPRequest().send().run { TokenResponse.parse(this) }
+                    httpRequest.send().run { TokenResponse.parse(this) }
                 }
             }.fold(
                 onSuccess = { httpResponse: TokenResponse ->
