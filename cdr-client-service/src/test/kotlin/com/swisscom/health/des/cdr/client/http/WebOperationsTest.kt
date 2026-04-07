@@ -24,6 +24,7 @@ import com.swisscom.health.des.cdr.client.config.TenantId
 import com.swisscom.health.des.cdr.client.config.toDto
 import com.swisscom.health.des.cdr.client.handler.ConfigValidationService
 import com.swisscom.health.des.cdr.client.handler.ConfigurationWriter
+import com.swisscom.health.des.cdr.client.handler.FileMonitoringService
 import com.swisscom.health.des.cdr.client.handler.ShutdownService
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_AUTHENTICATED
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_COMMUNICATION_ERROR
@@ -83,6 +84,9 @@ internal class WebOperationsTest {
     private lateinit var retryIOExceptionsAndServerErrors: RetryTemplate
 
     @MockK
+    private lateinit var fileMonitoringService: FileMonitoringService
+
+    @MockK
     private lateinit var authNService: OAuth2AuthNService
 
     private var objectMapper: ObjectMapper = ObjectMapper()
@@ -95,6 +99,16 @@ internal class WebOperationsTest {
     fun setUp() {
         webOperationsAdvice = WebOperationsAdvice()
 
+        every { fileMonitoringService.monitoringStatus } returns mockk {
+            every { value } returns DTOs.FileMonitoringStatusResponse(
+                hasErrorFiles = false,
+                errorFileCount = 0,
+                hasOldTempFiles = false,
+                oldTempFileCount = 0
+            )
+        }
+        io.mockk.coEvery { fileMonitoringService.checkFileStatus() } returns Unit
+
         webOperations = WebOperations(
             shutdownService = shutdownService,
             configWriter = configWriter,
@@ -103,7 +117,8 @@ internal class WebOperationsTest {
             config = DEFAULT_CDR_CONFIG,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = retryIOExceptionsAndServerErrors,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
     }
 
@@ -256,7 +271,8 @@ internal class WebOperationsTest {
             config = DEFAULT_CDR_CONFIG,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = realRetryTemplate,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
 
         val idpCredentials = DTOs.CdrClientConfig.IdpCredentials(
@@ -295,7 +311,8 @@ internal class WebOperationsTest {
             config = DEFAULT_CDR_CONFIG,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = realRetryTemplate,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
 
         val idpCredentials = DTOs.CdrClientConfig.IdpCredentials(
@@ -339,7 +356,8 @@ internal class WebOperationsTest {
             config = configWithOriginalEndpoint,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = realRetryTemplate,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
 
         val idpCredentials = DTOs.CdrClientConfig.IdpCredentials(
@@ -423,6 +441,7 @@ internal class WebOperationsTest {
             fileBusyTestTimeout = Duration.ofSeconds(1L),
             fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
             proxyConfig = null,
+            oldFileThreshold = Duration.ofHours(2L),
         )
     }
 }

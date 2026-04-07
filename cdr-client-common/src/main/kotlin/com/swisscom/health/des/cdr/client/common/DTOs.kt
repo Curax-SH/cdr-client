@@ -136,6 +136,12 @@ class DTOs {
     data class StatusResponse(
         val statusCode: StatusCode,
         val errorCodes: List<String> = emptyList(),
+        val fileMonitoringStatus: FileMonitoringStatusResponse = FileMonitoringStatusResponse(
+            hasErrorFiles = false,
+            errorFileCount = 0,
+            hasOldTempFiles = false,
+            oldTempFileCount = 0
+        ),
     ) {
 
         enum class StatusCode(val isOnlineCategory: Boolean) {
@@ -161,6 +167,14 @@ class DTOs {
         val shutdownScheduledFor: Instant,
         val trigger: String,
         val exitCode: Int,
+    )
+
+    @Serializable
+    data class FileMonitoringStatusResponse(
+        val hasErrorFiles: Boolean,
+        val errorFileCount: Int,
+        val hasOldTempFiles: Boolean,
+        val oldTempFileCount: Int,
     )
 
     /**
@@ -191,6 +205,7 @@ class DTOs {
         val fileBusyTestTimeout: Duration,
         val fileBusyTestStrategy: FileBusyTestStrategy,
         val proxyConfig: ProxyConfig,
+        val oldFileThreshold: Duration,
     ) {
 
         companion object {
@@ -213,6 +228,7 @@ class DTOs {
                 fileBusyTestStrategy = FileBusyTestStrategy.NEVER_BUSY,
                 retryTemplate = RetryTemplateConfig.EMPTY,
                 proxyConfig = ProxyConfig.EMPTY,
+                oldFileThreshold = Duration.ZERO,
             )
         }
 

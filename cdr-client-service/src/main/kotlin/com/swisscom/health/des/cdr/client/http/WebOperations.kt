@@ -18,6 +18,7 @@ import com.swisscom.health.des.cdr.client.config.toCdrClientConfig
 import com.swisscom.health.des.cdr.client.config.toDto
 import com.swisscom.health.des.cdr.client.handler.ConfigValidationService
 import com.swisscom.health.des.cdr.client.handler.ConfigurationWriter
+import com.swisscom.health.des.cdr.client.handler.FileMonitoringService
 import com.swisscom.health.des.cdr.client.handler.ShutdownService
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_AUTHENTICATED
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_COMMUNICATION_ERROR
@@ -65,6 +66,7 @@ internal class WebOperations(
     @param:Qualifier("retryIoAndServerErrors")
     private val retryIOExceptionsAndServerErrors: RetryTemplate,
     private val authService: OAuth2AuthNService,
+    private val fileMonitoringService: FileMonitoringService,
 ) {
     /*
      * BEGIN - (Configuration) Validation Endpoints
@@ -314,7 +316,7 @@ internal class WebOperations(
      * status of the different indicators is translated into an application-specific
      * [status code][DTOs.StatusResponse.StatusCode].
      *
-     * @return a [DTOs.StatusResponse] containing the status code of the client service
+     * @return a [DTOs.StatusResponse] containing the status code of the client service and file monitoring status
      * @see [HealthIndicators]
      */
     @Suppress("CyclomaticComplexMethod")
@@ -351,9 +353,13 @@ internal class WebOperations(
                 DTOs.StatusResponse.StatusCode.UNKNOWN
             }
 
+        // Trigger a fresh file monitoring check before returning the status
+        fileMonitoringService.checkFileStatus()
+
         return ResponseEntity.ok(
             DTOs.StatusResponse(
                 statusCode = status,
+                fileMonitoringStatus = fileMonitoringService.monitoringStatus.value
             )
         )
     }.getOrElse { error: Throwable ->
