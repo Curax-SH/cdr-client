@@ -8,6 +8,7 @@ import com.swisscom.health.des.cdr.client.config.ConnectorId
 import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
 import com.swisscom.health.des.cdr.client.config.TenantId
+import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.PULL_RESULT_ID_HEADER
 import com.swisscom.health.des.cdr.client.xml.DocumentType
 import com.swisscom.health.des.cdr.client.xml.XmlUtil
 import io.micrometer.tracing.Span
@@ -34,7 +35,7 @@ import org.springframework.retry.RetryCallback
 import org.springframework.retry.support.RetryTemplate
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
-import java.util.UUID
+import java.util.*
 import kotlin.io.path.createDirectories
 import kotlin.io.path.extension
 import kotlin.io.path.listDirectoryEntries
