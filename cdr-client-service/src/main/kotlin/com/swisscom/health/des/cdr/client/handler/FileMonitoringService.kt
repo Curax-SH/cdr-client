@@ -5,11 +5,6 @@ import com.swisscom.health.des.cdr.client.config.CdrClientConfig
 import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.TEMP_FILE_EXTENSION
 import com.swisscom.health.des.cdr.client.scheduling.BaseUploadScheduler.Companion.EXTENSION_XML
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.time.Instant
@@ -30,39 +25,26 @@ private val logger = KotlinLogging.logger {}
 internal class FileMonitoringService(
     private val config: CdrClientConfig,
 ) {
-    private val mutex = Mutex()
-    private val _monitoringStatus = MutableStateFlow(
-        DTOs.FileMonitoringStatusResponse(
-            hasErrorFiles = false,
-            errorFileCount = 0,
-            hasOldTempFiles = false,
-            oldTempFileCount = 0
-        )
-    )
-    val monitoringStatus: StateFlow<DTOs.FileMonitoringStatusResponse> = _monitoringStatus.asStateFlow()
-
 
     /**
      * Checks all error directories and the temporary directory for problematic files.
-     * This method is thread-safe and can be called from multiple sources.
+     * Returns the current file monitoring status.
      */
-    suspend fun checkFileStatus() {
-        mutex.withLock {
-            logger.debug { "Starting file monitoring check" }
+    suspend fun checkFileStatus(): DTOs.FileMonitoringStatusResponse {
+        logger.debug { "Starting file monitoring check" }
 
-            val errorFileCount = countErrorFiles()
-            val oldTempFileCount = countOldTempFiles()
+        val errorFileCount = countErrorFiles()
+        val oldTempFileCount = countOldTempFiles()
 
-            val newStatus = DTOs.FileMonitoringStatusResponse(
-                hasErrorFiles = errorFileCount > 0,
-                errorFileCount = errorFileCount,
-                hasOldTempFiles = oldTempFileCount > 0,
-                oldTempFileCount = oldTempFileCount
-            )
+        val status = DTOs.FileMonitoringStatusResponse(
+            hasErrorFiles = errorFileCount > 0,
+            errorFileCount = errorFileCount,
+            hasOldTempFiles = oldTempFileCount > 0,
+            oldTempFileCount = oldTempFileCount
+        )
 
-            _monitoringStatus.value = newStatus
-            logger.debug { "File monitoring check completed: $newStatus" }
-        }
+        logger.debug { "File monitoring check completed: $status" }
+        return status
     }
 
     /**

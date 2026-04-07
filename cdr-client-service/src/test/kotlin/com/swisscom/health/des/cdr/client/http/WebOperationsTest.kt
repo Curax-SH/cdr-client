@@ -99,15 +99,12 @@ internal class WebOperationsTest {
     fun setUp() {
         webOperationsAdvice = WebOperationsAdvice()
 
-        every { fileMonitoringService.monitoringStatus } returns mockk {
-            every { value } returns DTOs.FileMonitoringStatusResponse(
-                hasErrorFiles = false,
-                errorFileCount = 0,
-                hasOldTempFiles = false,
-                oldTempFileCount = 0
-            )
-        }
-        io.mockk.coEvery { fileMonitoringService.checkFileStatus() } returns Unit
+        io.mockk.coEvery { fileMonitoringService.checkFileStatus() } returns DTOs.FileMonitoringStatusResponse(
+            hasErrorFiles = false,
+            errorFileCount = 0,
+            hasOldTempFiles = false,
+            oldTempFileCount = 0
+        )
 
         webOperations = WebOperations(
             shutdownService = shutdownService,

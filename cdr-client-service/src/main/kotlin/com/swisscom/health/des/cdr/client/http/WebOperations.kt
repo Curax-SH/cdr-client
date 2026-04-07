@@ -353,13 +353,12 @@ internal class WebOperations(
                 DTOs.StatusResponse.StatusCode.UNKNOWN
             }
 
-        // Trigger a fresh file monitoring check before returning the status
-        fileMonitoringService.checkFileStatus()
+        val fileMonitoringStatus = fileMonitoringService.checkFileStatus()
 
         return ResponseEntity.ok(
             DTOs.StatusResponse(
                 statusCode = status,
-                fileMonitoringStatus = fileMonitoringService.monitoringStatus.value
+                fileMonitoringStatus = fileMonitoringStatus
             )
         )
     }.getOrElse { error: Throwable ->
