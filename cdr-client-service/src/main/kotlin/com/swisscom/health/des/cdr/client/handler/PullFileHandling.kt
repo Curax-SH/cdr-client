@@ -17,8 +17,6 @@ import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
 
 private val logger = KotlinLogging.logger {}
-internal const val PULL_RESULT_ID_HEADER = "cdr-document-uuid"
-internal const val PULL_RESULT_FILE_PREFIX_HEADER = "cdr-document-prefix"
 
 /**
  * A class responsible for handling files for a customer by syncing the files to a local directory,
