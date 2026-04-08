@@ -11,7 +11,7 @@ import com.swisscom.health.des.cdr.client.config.TempDownloadDir
 import com.swisscom.health.des.cdr.client.config.TenantId
 import com.swisscom.health.des.cdr.client.handler.CdrApiClient
 import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.CONNECTOR_ID_HEADER
-import com.swisscom.health.des.cdr.client.handler.PULL_RESULT_ID_HEADER
+import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.PULL_RESULT_ID_HEADER
 import com.swisscom.health.des.cdr.client.handler.PullFileHandling
 import com.swisscom.health.des.cdr.client.handler.SchedulingValidationService
 import com.swisscom.health.des.cdr.client.scheduling.DocumentDownloadScheduler
@@ -145,7 +145,7 @@ internal class PullDocumentDownloadSchedulerAndFileHandlerMultipleConnectorTest 
 
         mockTracer()
 
-        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper())
+        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper(), "OS")
         pullFileHandling = PullFileHandling(tracer, cdrApiClient, xmlParser)
         documentDownloadScheduler = DocumentDownloadScheduler(
             config,
@@ -182,12 +182,15 @@ internal class PullDocumentDownloadSchedulerAndFileHandlerMultipleConnectorTest 
             "GET" if request.headers[CONNECTOR_ID_HEADER] == connectorId1 -> {
                 mockResponseDependingOnPath(request) { handleConnectorOne(practOneMaxCount) }
             }
+
             "GET" if request.headers[CONNECTOR_ID_HEADER] == connectorId2 -> {
                 mockResponseDependingOnPath(request) { handleConnectorTwo(practTwoMaxCount) }
             }
+
             "DELETE" -> {
                 MockResponse.Builder().code(HttpStatus.OK.value()).build()
             }
+
             else -> {
                 MockResponse.Builder().code(HttpStatus.INTERNAL_SERVER_ERROR.value())
                     .body("I'm sorry. My responses are limited. You must ask the right questions.")
