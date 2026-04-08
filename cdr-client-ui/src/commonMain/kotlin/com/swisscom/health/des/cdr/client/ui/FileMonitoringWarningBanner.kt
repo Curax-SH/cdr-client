@@ -33,7 +33,7 @@ internal fun FileMonitoringWarningBanner(
                 color = Color(0xFF856404)
             )
 
-            if (fileMonitoringStatus.hasErrorFiles) {
+            if (fileMonitoringStatus.errorFileCount > 0) {
                 androidx.compose.material3.Text(
                     text = "• ${stringResource(Res.string.label_file_monitoring_error_files, fileMonitoringStatus.errorFileCount)}",
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
@@ -42,7 +42,7 @@ internal fun FileMonitoringWarningBanner(
                 )
             }
 
-            if (fileMonitoringStatus.hasOldTempFiles) {
+            if (fileMonitoringStatus.oldTempFileCount > 0) {
                 androidx.compose.material3.Text(
                     text = "• ${stringResource(Res.string.label_file_monitoring_old_temp_files, fileMonitoringStatus.oldTempFileCount)}",
                     style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,

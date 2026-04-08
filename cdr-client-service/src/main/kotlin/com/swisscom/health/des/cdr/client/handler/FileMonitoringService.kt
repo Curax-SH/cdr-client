@@ -37,9 +37,7 @@ internal class FileMonitoringService(
         val oldTempFileCount = countOldTempFiles()
 
         val status = DTOs.FileMonitoringStatusResponse(
-            hasErrorFiles = errorFileCount > 0,
             errorFileCount = errorFileCount,
-            hasOldTempFiles = oldTempFileCount > 0,
             oldTempFileCount = oldTempFileCount
         )
 
@@ -93,7 +91,7 @@ internal class FileMonitoringService(
                     }
 
                 if (count > 0) {
-                    logger.debug { "Found $count old file(s) (older than ${config.oldFileThreshold}) in temp directory '$tempFolder'" }
+                    logger.debug { "Found $count old file(s) (older than '${config.oldFileThreshold}') in temp directory '$tempFolder'" }
                 }
             }
         }.onFailure { t: Throwable ->

@@ -44,9 +44,7 @@ internal data class CdrConfigUiState(
     val clientServiceConfig: DTOs.CdrClientConfig = DTOs.CdrClientConfig.EMPTY,
     val errorMessageKey: StringResourceWithArgs? = null, // should be an ArrayDeque<String>, but I have not figured out how to turn that into an observable state yet
     val fileMonitoringStatus: DTOs.FileMonitoringStatusResponse = DTOs.FileMonitoringStatusResponse(
-        hasErrorFiles = false,
         errorFileCount = 0,
-        hasOldTempFiles = false,
         oldTempFileCount = 0
     ),
 )
@@ -688,7 +686,7 @@ internal class CdrConfigViewModel(
     }
 
     internal fun reportError(messageKey: StringResource, vararg formatArgs: Any) {
-        logger.trace { "reportError: '$messageKey', args: '$formatArgs'" }
+        logger.trace { "reportError: '$messageKey', args: '${formatArgs.contentToString()}'" }
         _uiState.update {
             it.copy(
                 errorMessageKey = StringResourceWithArgs(

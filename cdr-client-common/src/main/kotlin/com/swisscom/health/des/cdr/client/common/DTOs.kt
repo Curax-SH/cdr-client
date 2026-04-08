@@ -136,12 +136,7 @@ class DTOs {
     data class StatusResponse(
         val statusCode: StatusCode,
         val errorCodes: List<String> = emptyList(),
-        val fileMonitoringStatus: FileMonitoringStatusResponse = FileMonitoringStatusResponse(
-            hasErrorFiles = false,
-            errorFileCount = 0,
-            hasOldTempFiles = false,
-            oldTempFileCount = 0
-        ),
+        val fileMonitoringStatus: FileMonitoringStatusResponse = FileMonitoringStatusResponse.EMPTY,
     ) {
 
         enum class StatusCode(val isOnlineCategory: Boolean) {
@@ -171,11 +166,17 @@ class DTOs {
 
     @Serializable
     data class FileMonitoringStatusResponse(
-        val hasErrorFiles: Boolean,
         val errorFileCount: Int,
-        val hasOldTempFiles: Boolean,
         val oldTempFileCount: Int,
-    )
+    ) {
+        companion object {
+            @JvmStatic
+            val EMPTY = FileMonitoringStatusResponse(
+                errorFileCount = 0,
+                oldTempFileCount = 0
+            )
+        }
+    }
 
     /**
      * CDR client configuration class hierarchy. It is an almost verbatim copy of `com.swisscom.health.des.cdr.client.config.CdrClientConfig`.

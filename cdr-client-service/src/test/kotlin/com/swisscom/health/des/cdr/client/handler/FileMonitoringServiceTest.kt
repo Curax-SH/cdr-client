@@ -20,8 +20,6 @@ import com.swisscom.health.des.cdr.client.config.TenantId
 import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.TEMP_FILE_EXTENSION
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -73,9 +71,7 @@ internal class FileMonitoringServiceTest {
     fun `should report no issues when all directories are empty`() = runTest {
         val status = fileMonitoringService.checkFileStatus()
 
-        assertFalse(status.hasErrorFiles)
         assertEquals(0, status.errorFileCount)
-        assertFalse(status.hasOldTempFiles)
         assertEquals(0, status.oldTempFileCount)
     }
 
@@ -87,7 +83,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasErrorFiles)
         assertEquals(3, status.errorFileCount)
     }
 
@@ -100,7 +95,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasErrorFiles)
         assertEquals(2, status.errorFileCount)
     }
 
@@ -116,7 +110,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasOldTempFiles)
         assertEquals(2, status.oldTempFileCount)
     }
 
@@ -130,7 +123,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasOldTempFiles)
         assertEquals(1, status.oldTempFileCount)
     }
 
@@ -143,7 +135,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertFalse(status.hasOldTempFiles)
         assertEquals(0, status.oldTempFileCount)
     }
 
@@ -155,7 +146,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasErrorFiles)
         assertEquals(2, status.errorFileCount)
     }
 
@@ -169,7 +159,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasOldTempFiles)
         assertEquals(2, status.oldTempFileCount)
     }
 
@@ -183,9 +172,7 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasErrorFiles)
         assertEquals(2, status.errorFileCount)
-        assertTrue(status.hasOldTempFiles)
         assertEquals(1, status.oldTempFileCount)
     }
 
@@ -205,7 +192,6 @@ internal class FileMonitoringServiceTest {
 
         val status = service.checkFileStatus()
 
-        assertFalse(status.hasErrorFiles)
         assertEquals(0, status.errorFileCount)
     }
 
@@ -218,19 +204,16 @@ internal class FileMonitoringServiceTest {
         createErrorFile(errorDir1, "error2.xml")
         status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasErrorFiles)
         assertEquals(2, status.errorFileCount)
 
         errorDir1.resolve("error1.xml").toFile().delete()
         status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasErrorFiles)
         assertEquals(1, status.errorFileCount)
 
         errorDir1.resolve("error2.xml").toFile().delete()
         status = fileMonitoringService.checkFileStatus()
 
-        assertFalse(status.hasErrorFiles)
         assertEquals(0, status.errorFileCount)
     }
 
@@ -244,7 +227,6 @@ internal class FileMonitoringServiceTest {
 
         val status = fileMonitoringService.checkFileStatus()
 
-        assertTrue(status.hasOldTempFiles)
         assertEquals(1, status.oldTempFileCount)
     }
 
@@ -275,7 +257,6 @@ internal class FileMonitoringServiceTest {
 
         val status = service.checkFileStatus()
 
-        assertTrue(status.hasErrorFiles)
         assertEquals(3, status.errorFileCount)
     }
 

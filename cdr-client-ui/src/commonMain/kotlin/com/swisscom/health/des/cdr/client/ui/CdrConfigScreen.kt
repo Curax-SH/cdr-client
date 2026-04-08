@@ -116,7 +116,7 @@ internal fun CdrConfigScreen(
             }
 
             // File monitoring status warnings
-            if (uiState.fileMonitoringStatus.hasErrorFiles || uiState.fileMonitoringStatus.hasOldTempFiles) {
+            if (uiState.fileMonitoringStatus.errorFileCount > 0 || uiState.fileMonitoringStatus.oldTempFileCount > 0) {
                 FileMonitoringWarningBanner(
                     modifier = modifier.fillMaxWidth().padding(8.dp),
                     fileMonitoringStatus = uiState.fileMonitoringStatus

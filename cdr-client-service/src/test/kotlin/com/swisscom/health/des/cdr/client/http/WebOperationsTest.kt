@@ -100,9 +100,7 @@ internal class WebOperationsTest {
         webOperationsAdvice = WebOperationsAdvice()
 
         io.mockk.coEvery { fileMonitoringService.checkFileStatus() } returns DTOs.FileMonitoringStatusResponse(
-            hasErrorFiles = false,
             errorFileCount = 0,
-            hasOldTempFiles = false,
             oldTempFileCount = 0
         )
 

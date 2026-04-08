@@ -83,7 +83,7 @@ internal data class CdrClientConfig(
     /** Proxy configuration for all HTTP communication (optional). */
     val proxyConfig: ProxyConfig?,
 
-    /** Threshold for considering files in the temp directory as "old" (default: 2 hours). */
+    /** Threshold for considering files in the temp directory as "old". */
     val oldFileThreshold: Duration,
 ) : PropertyNameAware {
     override val propertyName: String
