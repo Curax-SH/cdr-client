@@ -391,7 +391,7 @@ internal class CdrClientApiClient {
 private object HttpClient {
 
     const val CONNECT_TIMEOUT_SECONDS: Long = 1L
-    const val READ_TIMEOUT_SECONDS: Long = 1L
+    const val READ_TIMEOUT_SECONDS: Long = 5L
 
     @JvmStatic
     val MEDIA_TYPE_APPLICATION_JSON = "application/json".toMediaType()
