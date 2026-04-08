@@ -239,6 +239,26 @@ internal class CdrClientContext {
     fun defaultBusyFileTester(): FileBusyTester =
         FileBusyTester.NeverBusy.also { logger.warn { "No file-busy-test strategy defined, defaulting to 'NEVER_BUSY'" } }
 
+    @Bean
+    fun osInformation(): String {
+        val osName = System.getProperty("os.name") ?: "Unknown"
+        val osVersion = System.getProperty("os.version") ?: "Unknown"
+        val osArch = System.getProperty("os.arch") ?: "Unknown"
+
+        return buildString {
+            append(osName)
+            if (osVersion.isNotBlank() && osVersion != "Unknown") {
+                append(" ")
+                append(osVersion)
+            }
+            if (osArch.isNotBlank() && osArch != "Unknown") {
+                append(" (")
+                append(osArch)
+                append(")")
+            }
+        }
+    }
+
 }
 
 

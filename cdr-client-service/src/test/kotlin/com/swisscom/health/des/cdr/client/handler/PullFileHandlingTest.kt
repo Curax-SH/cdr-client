@@ -8,6 +8,7 @@ import com.swisscom.health.des.cdr.client.config.ConnectorId
 import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
 import com.swisscom.health.des.cdr.client.config.TenantId
+import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.PULL_RESULT_ID_HEADER
 import com.swisscom.health.des.cdr.client.xml.DocumentType
 import com.swisscom.health.des.cdr.client.xml.XmlUtil
 import io.micrometer.tracing.Span
@@ -97,7 +98,7 @@ internal class PullFileHandlingTest {
 
         every { retryIoErrorsThrice.execute(any<RetryCallback<String, Exception>>()) } returns "Mocked Result"
 
-        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper())
+        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper(), "OS")
         pullFileHandling = PullFileHandling(tracer, cdrApiClient, XmlUtil())
     }
 
