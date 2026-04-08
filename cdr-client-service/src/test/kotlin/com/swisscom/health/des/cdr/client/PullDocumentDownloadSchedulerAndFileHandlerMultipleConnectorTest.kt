@@ -145,7 +145,7 @@ internal class PullDocumentDownloadSchedulerAndFileHandlerMultipleConnectorTest 
 
         mockTracer()
 
-        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper())
+        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper(), "OS")
         pullFileHandling = PullFileHandling(tracer, cdrApiClient, xmlParser)
         documentDownloadScheduler = DocumentDownloadScheduler(
             config,

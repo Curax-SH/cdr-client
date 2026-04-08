@@ -98,7 +98,7 @@ internal class PullFileHandlingTest {
 
         every { retryIoErrorsThrice.execute(any<RetryCallback<String, Exception>>()) } returns "Mocked Result"
 
-        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper())
+        cdrApiClient = CdrApiClient(config, OkHttpClient.Builder().build(), retryIoErrorsThrice, ObjectMapper(), "OS")
         pullFileHandling = PullFileHandling(tracer, cdrApiClient, XmlUtil())
     }
 
