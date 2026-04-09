@@ -38,6 +38,7 @@ import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.CONFIG
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.FILE_SYNCHRONIZATION_INDICATOR_NAME
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.FILE_SYNCHRONIZATION_STATUS_DISABLED
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.FILE_SYNCHRONIZATION_STATUS_ENABLED
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -99,10 +100,13 @@ internal class WebOperationsTest {
     fun setUp() {
         webOperationsAdvice = WebOperationsAdvice()
 
-        io.mockk.coEvery { fileMonitoringService.checkFileStatus() } returns DTOs.FileMonitoringStatusResponse(
-            errorFileCount = 0,
-            oldTempFileCount = 0
-        )
+        every { fileMonitoringService.monitoringStatus } returns mockk {
+            every { value } returns DTOs.FileMonitoringStatusResponse(
+                errorFileCount = 0,
+                oldTempFileCount = 0
+            )
+        }
+        coEvery { fileMonitoringService.checkFileStatus() } returns Unit
 
         webOperations = WebOperations(
             shutdownService = shutdownService,
@@ -437,6 +441,7 @@ internal class WebOperationsTest {
             fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
             proxyConfig = null,
             oldFileThreshold = Duration.ofHours(2L),
+            fileSystemCheckInterval = Duration.ofMinutes(5L),
         )
     }
 }

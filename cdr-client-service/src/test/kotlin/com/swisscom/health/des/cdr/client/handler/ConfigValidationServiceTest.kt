@@ -647,6 +647,7 @@ internal class ConfigValidationServiceTest {
             ),
             proxyConfig = null,
             oldFileThreshold = Duration.ofHours(2L),
+            fileSystemCheckInterval = Duration.ofMinutes(5L),
         )
 
     private fun blueSkyConnectors() = listOf(

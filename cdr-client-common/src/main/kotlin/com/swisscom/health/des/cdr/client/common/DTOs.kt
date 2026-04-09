@@ -207,6 +207,7 @@ class DTOs {
         val fileBusyTestStrategy: FileBusyTestStrategy,
         val proxyConfig: ProxyConfig,
         val oldFileThreshold: Duration,
+        val fileSystemCheckInterval: Duration,
     ) {
 
         companion object {
@@ -230,6 +231,7 @@ class DTOs {
                 retryTemplate = RetryTemplateConfig.EMPTY,
                 proxyConfig = ProxyConfig.EMPTY,
                 oldFileThreshold = Duration.ZERO,
+                fileSystemCheckInterval = Duration.ZERO,
             )
         }
 

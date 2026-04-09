@@ -39,6 +39,7 @@ internal class RetryUploadFileHandling(
     private val cdrClientConfig: CdrClientConfig,
     private val tracer: Tracer,
     private val cdrApiClient: CdrApiClient,
+    private val fileMonitoringService: FileMonitoringService,
 ) {
 
     private val uploadGuard = Semaphore(cdrClientConfig.pushThreadPoolSize)
@@ -186,7 +187,7 @@ internal class RetryUploadFileHandling(
      * For an error case, adds a UUID to the filename and creates a file with the response body with file extension '.response'.
      * If the filename already contains at least two UUIDs, replaces all but the first UUID with a new one to prevent excessively long filenames.
      */
-    private fun renameFileToErrorAndCreateLogFile(file: Path, responseBody: String): Unit = runCatching {
+    private suspend fun renameFileToErrorAndCreateLogFile(file: Path, responseBody: String): Unit = runCatching {
         val newBaseName = getBaseNameWithSingleOrNewUuid(file.nameWithoutExtension)
         val errorFolder = cdrClientConfig.customer.getConnectorForSourceFile(file).getEffectiveSourceErrorFolder()
         val errorFile = errorFolder.resolve("$newBaseName.$EXTENSION_XML")
@@ -194,7 +195,7 @@ internal class RetryUploadFileHandling(
         file.moveTo(errorFile)
         Files.write(logFile, responseBody.toByteArray(), StandardOpenOption.APPEND, StandardOpenOption.CREATE)
     }.fold(
-        onSuccess = {},
+        onSuccess = { fileMonitoringService.checkFileStatus() },
         onFailure = { t: Throwable -> logger.error { "Error during handling of failed upload of '${file}': '$t'" } }
     )
 

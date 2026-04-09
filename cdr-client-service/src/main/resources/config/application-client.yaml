@@ -23,7 +23,8 @@ client:
     - 10m
   file-busy-test-interval: 250ms
   file-busy-test-timeout: 30s
-  old-file-threshold: 2h
+  file-system-check-interval: 5m
+  old-file-threshold: 10m
   retry-template:
     retries: 5
     initial-delay: 250ms

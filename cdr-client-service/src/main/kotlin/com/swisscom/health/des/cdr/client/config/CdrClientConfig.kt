@@ -85,6 +85,9 @@ internal data class CdrClientConfig(
 
     /** Threshold for considering files in the temp directory as "old". */
     val oldFileThreshold: Duration,
+
+    /** Time between checks of the filesystem */
+    val fileSystemCheckInterval: Duration,
 ) : PropertyNameAware {
     override val propertyName: String
         get() = PROPERTY_NAME

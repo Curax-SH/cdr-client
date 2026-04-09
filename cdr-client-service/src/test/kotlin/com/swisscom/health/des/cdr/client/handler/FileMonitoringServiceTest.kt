@@ -69,7 +69,9 @@ internal class FileMonitoringServiceTest {
 
     @Test
     fun `should report no issues when all directories are empty`() = runTest {
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
+
+        val status = fileMonitoringService.monitoringStatus.value
 
         assertEquals(0, status.errorFileCount)
         assertEquals(0, status.oldTempFileCount)
@@ -81,8 +83,9 @@ internal class FileMonitoringServiceTest {
         createErrorFile(errorDir1, "error2.xml")
         createErrorFile(errorDir2, "error3.xml")
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(3, status.errorFileCount)
     }
 
@@ -93,8 +96,9 @@ internal class FileMonitoringServiceTest {
         createErrorFile(errorDir1, "error3.response")
         createErrorFile(errorDir2, "error4.xml")
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(2, status.errorFileCount)
     }
 
@@ -108,8 +112,9 @@ internal class FileMonitoringServiceTest {
         createTempFile(tempDir, "old2.$TEMP_FILE_EXTENSION", threeHoursAgo)
         createTempFile(tempDir, "recent.$TEMP_FILE_EXTENSION", oneHourAgo)
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(2, status.oldTempFileCount)
     }
 
@@ -121,8 +126,9 @@ internal class FileMonitoringServiceTest {
         createTempFile(tempDir, "file2.xml", threeHoursAgo)
         createTempFile(tempDir, "file3.txt", threeHoursAgo)
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(1, status.oldTempFileCount)
     }
 
@@ -133,8 +139,9 @@ internal class FileMonitoringServiceTest {
         createTempFile(tempDir, "recent1.$TEMP_FILE_EXTENSION", oneHourAgo)
         createTempFile(tempDir, "recent2.$TEMP_FILE_EXTENSION", oneHourAgo)
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(0, status.oldTempFileCount)
     }
 
@@ -144,8 +151,9 @@ internal class FileMonitoringServiceTest {
         createErrorFile(errorDir1, "error1.xml")
         createErrorFile(nestedDir, "error2.xml")
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(2, status.errorFileCount)
     }
 
@@ -157,8 +165,9 @@ internal class FileMonitoringServiceTest {
         createTempFile(tempDir, "old1.$TEMP_FILE_EXTENSION", threeHoursAgo)
         createTempFile(nestedDir, "old2.$TEMP_FILE_EXTENSION", threeHoursAgo)
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(2, status.oldTempFileCount)
     }
 
@@ -170,8 +179,9 @@ internal class FileMonitoringServiceTest {
         createErrorFile(errorDir2, "error2.xml")
         createTempFile(tempDir, "old.$TEMP_FILE_EXTENSION", threeHoursAgo)
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(2, status.errorFileCount)
         assertEquals(1, status.oldTempFileCount)
     }
@@ -190,30 +200,36 @@ internal class FileMonitoringServiceTest {
         val config = createConfigWith(connector)
         val service = FileMonitoringService(config)
 
-        val status = service.checkFileStatus()
+        service.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(0, status.errorFileCount)
     }
 
     @Test
     fun `should update status on subsequent checks`() = runTest {
-        var status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
+
+        var status = fileMonitoringService.monitoringStatus.value
         assertEquals(0, status.errorFileCount)
 
         createErrorFile(errorDir1, "error1.xml")
         createErrorFile(errorDir1, "error2.xml")
-        status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        status = fileMonitoringService.monitoringStatus.value
         assertEquals(2, status.errorFileCount)
 
         errorDir1.resolve("error1.xml").toFile().delete()
-        status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        status = fileMonitoringService.monitoringStatus.value
         assertEquals(1, status.errorFileCount)
 
         errorDir1.resolve("error2.xml").toFile().delete()
-        status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        status = fileMonitoringService.monitoringStatus.value
         assertEquals(0, status.errorFileCount)
     }
 
@@ -225,8 +241,9 @@ internal class FileMonitoringServiceTest {
         createTempFile(tempDir, "over.$TEMP_FILE_EXTENSION", justOverTwoHoursAgo)
         createTempFile(tempDir, "under.$TEMP_FILE_EXTENSION", justUnderTwoHoursAgo)
 
-        val status = fileMonitoringService.checkFileStatus()
+        fileMonitoringService.checkFileStatus()
 
+        val status = fileMonitoringService.monitoringStatus.value
         assertEquals(1, status.oldTempFileCount)
     }
 
@@ -255,8 +272,9 @@ internal class FileMonitoringServiceTest {
         createErrorFile(errorDir1, "error2.xml")
         createErrorFile(errorDir2, "error3.xml")
 
-        val status = service.checkFileStatus()
+        service.checkFileStatus()
 
+        val status = service.monitoringStatus.value
         assertEquals(3, status.errorFileCount)
     }
 
@@ -333,5 +351,6 @@ internal class FileMonitoringServiceTest {
             fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
             proxyConfig = null,
             oldFileThreshold = Duration.ofHours(2L),
+            fileSystemCheckInterval = Duration.ofMinutes(5L),
         )
 }
