@@ -81,7 +81,13 @@ internal data class CdrClientConfig(
     val fileBusyTestStrategy: FileBusyTestStrategyProperty,
 
     /** Proxy configuration for all HTTP communication (optional). */
-    val proxyConfig: ProxyConfig?
+    val proxyConfig: ProxyConfig?,
+
+    /** Threshold for considering files in the temp directory as "old". */
+    val oldFileThreshold: Duration,
+
+    /** Time between checks of the filesystem */
+    val fileSystemCheckInterval: Duration,
 ) : PropertyNameAware {
     override val propertyName: String
         get() = PROPERTY_NAME

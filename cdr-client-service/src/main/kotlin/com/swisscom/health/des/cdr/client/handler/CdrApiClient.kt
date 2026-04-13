@@ -247,7 +247,7 @@ internal class CdrApiClient(
                     response.isSuccessful -> {
                         val pullResultId: String = requireNotNull(response.header(PULL_RESULT_ID_HEADER)) { error("No pull result id found in response") }
                         val documentPrefix: String = response.header(PULL_RESULT_FILE_PREFIX_HEADER)?.let { "${it}_" } ?: ""
-                        val tmpFile: Path = cdrClientConfig.localFolder.path.resolve("$documentPrefix$pullResultId.tmp")
+                        val tmpFile: Path = cdrClientConfig.localFolder.path.resolve("$documentPrefix$pullResultId.$TEMP_FILE_EXTENSION")
                             .apply {
                                 outputStream().use { os ->
                                     response.body.byteStream().use { iss -> iss.copyTo(os) }
@@ -417,6 +417,7 @@ internal class CdrApiClient(
         const val CLIENT_OS_HEADER = "SWISSCOM-CLIENT-OS"
         const val PULL_RESULT_ID_HEADER = "cdr-document-uuid"
         const val PULL_RESULT_FILE_PREFIX_HEADER = "cdr-document-prefix"
+        const val TEMP_FILE_EXTENSION = "tmp"
         val clientType: String? = CdrApiClient::class.java.`package`.implementationTitle
         val clientVersion: String? = CdrApiClient::class.java.`package`.implementationVersion
     }

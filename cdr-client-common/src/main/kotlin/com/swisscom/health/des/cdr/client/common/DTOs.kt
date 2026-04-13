@@ -136,6 +136,7 @@ class DTOs {
     data class StatusResponse(
         val statusCode: StatusCode,
         val errorCodes: List<String> = emptyList(),
+        val fileMonitoringStatus: FileMonitoringStatusResponse = FileMonitoringStatusResponse.EMPTY,
     ) {
 
         enum class StatusCode(val isOnlineCategory: Boolean) {
@@ -162,6 +163,20 @@ class DTOs {
         val trigger: String,
         val exitCode: Int,
     )
+
+    @Serializable
+    data class FileMonitoringStatusResponse(
+        val errorFileCount: Int,
+        val oldTempFileCount: Int,
+    ) {
+        companion object {
+            @JvmStatic
+            val EMPTY = FileMonitoringStatusResponse(
+                errorFileCount = 0,
+                oldTempFileCount = 0
+            )
+        }
+    }
 
     /**
      * CDR client configuration class hierarchy. It is an almost verbatim copy of `com.swisscom.health.des.cdr.client.config.CdrClientConfig`.
@@ -191,6 +206,8 @@ class DTOs {
         val fileBusyTestTimeout: Duration,
         val fileBusyTestStrategy: FileBusyTestStrategy,
         val proxyConfig: ProxyConfig,
+        val oldFileThreshold: Duration,
+        val fileSystemCheckInterval: Duration,
     ) {
 
         companion object {
@@ -213,6 +230,8 @@ class DTOs {
                 fileBusyTestStrategy = FileBusyTestStrategy.NEVER_BUSY,
                 retryTemplate = RetryTemplateConfig.EMPTY,
                 proxyConfig = ProxyConfig.EMPTY,
+                oldFileThreshold = Duration.ZERO,
+                fileSystemCheckInterval = Duration.ZERO,
             )
         }
 

@@ -133,7 +133,9 @@ class ConfigurationWriterTest {
                 url = ProxyUrl(""),
                 username = ProxyUsername(""),
                 password = ProxyPassword("")
-            )
+            ),
+            oldFileThreshold = Duration.ofHours(2L),
+            fileSystemCheckInterval = Duration.ofMinutes(5L),
         )
 
         every { configValidationService.validateAllConfigurationItems(any()) } returns ValidationResult.Success
