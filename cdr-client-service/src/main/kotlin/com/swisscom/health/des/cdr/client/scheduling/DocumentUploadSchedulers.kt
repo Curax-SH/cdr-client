@@ -44,6 +44,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.nio.file.Files
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Objects.isNull
@@ -56,6 +57,7 @@ import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.nameWithoutExtension
+import kotlin.time.Duration.Companion.milliseconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -357,13 +359,13 @@ internal abstract class BaseUploadScheduler(
                 continueSpan(tracer, span) {
                     logger.debug {
                         "new item '${fileOrDir.name}' in '['${fileOrDir.parent}']' ; file ${
-                            if (fileOrDir.isRegularFile()) "is"
+                            if (fileOrDir.isRegularFile(NOFOLLOW_LINKS)) "is"
                             else "is not"
                         } a regular file and will be ${
-                            if (fileOrDir.isRegularFile()) "processed" else "ignored"
+                            if (fileOrDir.isRegularFile(NOFOLLOW_LINKS)) "processed" else "ignored"
                         }"
                     }
-                    fileOrDir.isRegularFile()
+                    fileOrDir.isRegularFile(NOFOLLOW_LINKS)
                 }.first
             }
             .filter { (file: Path, span: Span) ->
@@ -444,7 +446,7 @@ internal abstract class BaseUploadScheduler(
 
     private suspend fun Path.isBusy(): Boolean =
         runCatching {
-            withTimeout(config.fileBusyTestTimeout.toMillis()) {
+            withTimeout(config.fileBusyTestTimeout.toMillis().milliseconds) {
                 while (fileBusyTester.isBusy(this@isBusy)) {
                     logger.debug { "'${this@isBusy}' is still busy; waiting '${config.fileBusyTestInterval}' for it to become available" }
                     delay(config.fileBusyTestInterval)

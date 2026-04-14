@@ -16,19 +16,23 @@ kotlin {
         vendor.set(JvmVendorSpec.ADOPTIUM)
     }
 
+    compilerOptions {
+        progressiveMode = true
+        freeCompilerArgs = listOf("-Xjsr305=strict")
+    }
+
     sourceSets {
         val desktopMain by getting
         val desktopTest by getting
 
         commonMain.dependencies {
+            // Dependency aliases are deprecated, but the BOM is not available yet; keeping the aliases until the BOM arrives
+            // https://kotlinlang.org/docs/multiplatform/whats-new-compose-110.html#deprecated-dependency-aliases
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
-            // Preview tooling added by template, but actually not needed/wrong for desktop previews:
-            // https://youtrack.jetbrains.com/issue/CMP-4869
-//            implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(libs.kotlin.logging)
@@ -62,6 +66,9 @@ kotlin {
 }
 
 dependencies {
+    // Dependency aliases are deprecated, but the BOM is not available yet; keeping the aliases until the BOM arrives
+    // https://kotlinlang.org/docs/multiplatform/whats-new-compose-110.html#deprecated-dependency-aliases
+    //
     // Use the configurations created by the Conveyor plugin to tell Gradle/Conveyor where to find the artifacts for each platform.
     linuxAmd64(compose.desktop.linux_x64)
     macAmd64(compose.desktop.macos_x64)
@@ -88,12 +95,3 @@ tasks.withType<Jar> {
         )
     }
 }
-
-// region Work around temporary Compose bugs.
-configurations.all {
-    attributes {
-        // https://github.com/JetBrains/compose-jb/issues/1404#issuecomment-1146894731
-        attribute(Attribute.of("ui", String::class.java), "awt")
-    }
-}
-// endregion

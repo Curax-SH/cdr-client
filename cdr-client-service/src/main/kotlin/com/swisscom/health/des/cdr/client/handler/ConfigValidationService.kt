@@ -39,6 +39,7 @@ import kotlin.io.path.exists
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isReadable
+import kotlin.io.path.isRegularFile
 import kotlin.io.path.isWritable
 
 private val logger = KotlinLogging.logger {}
@@ -295,7 +296,7 @@ internal class ConfigValidationService(
             }
 
         fun pathIsDirectory(path: Path): ValidationResult = if (!path.isDirectory()) {
-            logger.debug { "Path exists but is not a directory: [${path}], isRegularFile: [${Files.isRegularFile(path)}]" }
+            logger.debug { "Path exists but is not a directory: [${path}], isRegularFile: [${path.isRegularFile()}]" }
             ValidationResult.Failure(
                 listOf(ValidationDetail.PathDetail(path = path.toString(), messageKey = NOT_A_DIRECTORY))
             )

@@ -1,31 +1,31 @@
 [versions]
-jdk="21"
-kotlin-lang = "2.3.10"
-compose-multiplatform = "1.10.2"
+jdk="21" # upgrade to Java 25 is blocked by detekt; we will have to wait for release 2.0
+kotlin-lang = "2.3.20"
+compose-multiplatform = "1.10.3"
 compose-native-tray = "1.1.0"
-kotlin-logging = "7.0.14"
+kotlin-logging = "8.0.01"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization="1.10.0"
-detekt = "1.23.8"
+detekt = "1.23.8" # version 2.0 is supposed to have Java 25 support
 awaitility="4.3.0"
 jacoco="0.8.14"
 kache="2.1.1"
 kfs-watch="1.4.0"
-logstash-encoder="8.1"
+logstash-encoder="8.1" # 9.0 switches to Jackson 3, but SpringBoot 3.5 is still on Jackson 2
 mockk="1.14.9"
-spring-mockk="4.0.2"
-nimbusOauth2SdkVersion="11.33"
+spring-mockk="4.0.2" # 5.0 is a rewrite and comes with breaking changes: https://github.com/Ninja-Squad/springmockk/blob/master/README.md#migrating-to-version-5x
+nimbusOauth2SdkVersion="11.37"
 okHttp="5.3.2"
 spring-cloud="2025.1.1"
-spring-boot="3.5.11"
+spring-boot="3.5.13"
 spring-dependency-management="1.1.7"
-docker-compose="0.17.12" # all versions above this one require Gradle 9; blocked by the conveyor-plugin which is not Gradle 9 compatible yet
-conveyor-plugin = "1.12"
-androidx-lifecycle = "2.9.6"
-conveyor-control-api = "1.1"
-jna = "5.18.1"
-ui-tiles = "2.15.0"
-pgreze-kotlin-process = "1.5.1"
+docker-compose="0.17.21" # all versions above this one require Gradle 9; blocked by the conveyor-plugin which is not Gradle 9 compatible yet
+conveyor-plugin="2.0"
+androidx-lifecycle="2.10.0"
+conveyor-control-api="1.1"
+jna="5.18.1"
+ui-tiles="3.1.0"
+pgreze-kotlin-process="1.5.1"
 
 [libraries]
 kache = { group = "com.mayakapps.kache", name = "kache", version.ref = "kache" }
@@ -80,4 +80,3 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin-lang" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin-lang" }
 conveyor = { id = "dev.hydraulic.conveyor", version.ref = "conveyor-plugin" }
-
