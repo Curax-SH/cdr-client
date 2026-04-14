@@ -115,6 +115,14 @@ internal fun CdrConfigScreen(
                 )
             }
 
+            // File monitoring status warnings
+            if (uiState.fileMonitoringStatus.errorFileCount > 0 || uiState.fileMonitoringStatus.oldTempFileCount > 0) {
+                FileMonitoringWarningBanner(
+                    modifier = modifier.fillMaxWidth().padding(8.dp),
+                    fileMonitoringStatus = uiState.fileMonitoringStatus
+                )
+            }
+
             Divider(modifier = modifier)
 
             // client service enabled/disabled option

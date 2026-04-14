@@ -154,14 +154,14 @@ internal class CdrClientApiClient {
         getAnything<DTOs.ShutdownResponse>(SHUTDOWN_URL, "Send command to shut down the client service")
 
     /**
-     * Retrieves the current [status][DTOs.StatusResponse.StatusCode] of the CDR Client service.
+     * Retrieves the current status of the CDR Client service including file monitoring status.
      *
      * @param retryStrategy The [RetryStrategy] to use for retrying the request in case of an IO error.
-     * @return The current [status][DTOs.StatusResponse.StatusCode] of the CDR Client service.
+     * @return The current [DTOs.StatusResponse] containing status code and file monitoring information.
      */
     // TODO: Make condition for retry configurable, so that it can be used for any response type;
     //  then add retry to getAnything() and use it here as well.
-    suspend fun getClientServiceStatus(retryStrategy: RetryStrategy): DTOs.StatusResponse.StatusCode = withContext(Dispatchers.IO) {
+    suspend fun getClientServiceStatus(retryStrategy: RetryStrategy): DTOs.StatusResponse = withContext(Dispatchers.IO) {
         // logging on DEBUG level as this method gets called every second
         retryStrategy.apply { retryCount ->
             logger.debug { "BEGIN - Get client service status; retry count '$retryCount'" }
@@ -183,17 +183,17 @@ internal class CdrClientApiClient {
                         if (response.isSuccessful) {
                             val statusResponse = JSON.decodeFromString<DTOs.StatusResponse>(responseString)
                             logger.debug { "END success - Get client service status; retry count '$retryCount'" }
-                            statusResponse.statusCode
+                            statusResponse
                         } else {
                             logger.debug {
                                 "END failed - Get client service status; retry count '$retryCount'; code: '${response.code}'; body: '$responseString'"
                             }
-                            DTOs.StatusResponse.StatusCode.ERROR
+                            DTOs.StatusResponse(statusCode = DTOs.StatusResponse.StatusCode.ERROR)
                         }
                     }
             }.getOrElse { error ->
                 logger.debug { "END failed - Get client service status; retry count '$retryCount'; error: '$error'" }
-                DTOs.StatusResponse.StatusCode.OFFLINE
+                DTOs.StatusResponse(statusCode = DTOs.StatusResponse.StatusCode.OFFLINE)
             }
         }
     }
@@ -308,14 +308,14 @@ internal class CdrClientApiClient {
      * is used, the call will be retried in case the call yields the remote status
      * [DTOs.StatusResponse.StatusCode.OFFLINE].
      *
-     * @see [DTOs.StatusResponse.StatusCode]
+     * @see [DTOs.StatusResponse]
      */
     enum class RetryStrategy {
         NONE,
         LINEAR,
         EXPONENTIAL;
 
-        suspend inline fun apply(block: suspend (retryCount: Int) -> DTOs.StatusResponse.StatusCode): DTOs.StatusResponse.StatusCode =
+        suspend inline fun apply(block: suspend (retryCount: Int) -> DTOs.StatusResponse): DTOs.StatusResponse =
             when (this) {
                 NONE -> block(0)
                 LINEAR -> retry(initialDelay = 1.seconds, factor = 1.0, times = 25, block = block)
@@ -327,12 +327,12 @@ internal class CdrClientApiClient {
             initialDelay: Duration,
             maxDelay: Duration = 10.seconds,
             factor: Double,
-            block: suspend (Int) -> DTOs.StatusResponse.StatusCode
-        ): DTOs.StatusResponse.StatusCode {
+            block: suspend (Int) -> DTOs.StatusResponse
+        ): DTOs.StatusResponse {
             var currentDelay: Duration = initialDelay
             repeat(times - 1) { retryCount ->
                 val result = block(retryCount)
-                if (result != FAILED_STATUS_CODE) {
+                if (result.statusCode != FAILED_STATUS_CODE) {
                     return result
                 } else {
                     logger.debug { "curaLINE client service is '${FAILED_STATUS_CODE}', retrying after '$currentDelay'" }

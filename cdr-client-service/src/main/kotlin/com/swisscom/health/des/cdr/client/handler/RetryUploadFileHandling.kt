@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.UUID
+import java.util.*
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.moveTo
@@ -82,7 +82,7 @@ internal class RetryUploadFileHandling(
                             "File synchronization failed for '${uploadFile.fileName}'. Received a 4xx client error (response code: '${response.code}'). " +
                                     "Retry will be attempted in '${cdrClientConfig.retryDelay[retryIndex]}'"
                         }
-                       true
+                        true
                     }
 
                     is UploadDocumentResult.UploadClientConfigNonRetryableErrorResponse -> {
@@ -194,7 +194,7 @@ internal class RetryUploadFileHandling(
         file.moveTo(errorFile)
         Files.write(logFile, responseBody.toByteArray(), StandardOpenOption.APPEND, StandardOpenOption.CREATE)
     }.fold(
-        onSuccess = {},
+        onSuccess = { },
         onFailure = { t: Throwable -> logger.error { "Error during handling of failed upload of '${file}': '$t'" } }
     )
 

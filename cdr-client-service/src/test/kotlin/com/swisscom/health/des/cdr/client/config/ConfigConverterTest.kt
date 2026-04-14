@@ -71,7 +71,9 @@ class ConfigConverterTest {
         fileBusyTestInterval = Duration.ofSeconds(1L),
         fileBusyTestTimeout = Duration.ofSeconds(1L),
         fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig()
+        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig(),
+        oldFileThreshold = Duration.ofHours(2L),
+        fileSystemCheckInterval = Duration.ofMinutes(5L),
     )
 
     private val configAllAbsolutePaths: CdrClientConfig = CdrClientConfig(
@@ -92,7 +94,8 @@ class ConfigConverterTest {
                         DocumentType.CREDIT to Connector.DocTypeFolders(targetFolder = RELATIVE_PATH),
                     ),
                 )
-            )),
+            )
+        ),
         cdrApi = CdrApi(
             scheme = "http",
             host = Host("localhost"),
@@ -130,7 +133,9 @@ class ConfigConverterTest {
         fileBusyTestInterval = Duration.ofSeconds(1L),
         fileBusyTestTimeout = Duration.ofSeconds(1L),
         fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig()
+        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig(),
+        oldFileThreshold = Duration.ofHours(2L),
+        fileSystemCheckInterval = Duration.ofMinutes(5L),
     )
 
 

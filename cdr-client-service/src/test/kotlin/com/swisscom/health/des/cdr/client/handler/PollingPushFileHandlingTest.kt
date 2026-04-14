@@ -71,7 +71,7 @@ import kotlin.io.path.walk
     ]
 )
 // only test polling, not filesystem event handling
-@ActiveProfiles("test", "noEventTriggerUploadScheduler", "noDownloadScheduler")
+@ActiveProfiles("test", "noEventTriggerUploadScheduler", "noDownloadScheduler", "noFileMonitoringScheduler")
 @DirtiesContext(classMode = ClassMode.BEFORE_CLASS)
 internal class PollingPushFileHandlingTest {
 
