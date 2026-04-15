@@ -1,11 +1,6 @@
-version: "1.2"
 client:
   file-synchronization-enabled: true
   local-folder: ${java.io.tmpdir}
-  proxy-config:
-    url:
-    username:
-    password:
   idp-credentials:
     tenant-id: value-required
     client-id: value-required
