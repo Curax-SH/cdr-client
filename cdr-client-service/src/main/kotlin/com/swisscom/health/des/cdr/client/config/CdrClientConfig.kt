@@ -81,7 +81,7 @@ internal data class CdrClientConfig(
     val fileBusyTestStrategy: FileBusyTestStrategyProperty,
 
     /** Proxy configuration for all HTTP communication (optional). */
-    val proxyConfig: ProxyConfig?,
+    val proxyConfig: ProxyConfig,
 
     /** Threshold for considering files in the temp directory as "old". */
     val oldFileThreshold: Duration,

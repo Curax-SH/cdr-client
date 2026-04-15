@@ -9,6 +9,10 @@ client:
     last-credential-renewal-time: 1970-01-01T00:00:00Z
     scope: https://dev.identity.health.swisscom.ch/CdrApi/.default
   idp-endpoint: http://localhost/${client.idp-credentials.tenant-id}/oauth2/v2.0/token
+  proxy-config:
+    url:
+    username:
+    password:
   # If you change this, then you need to change com.swisscom.health.des.cdr.client.AlwaysSameTempDirFactory as well
   local-folder: ${java.io.tmpdir}/cdr-client-test-source/cdr_download
   schedule-delay: PT1S
@@ -56,4 +60,3 @@ client:
           target-folder: ${client.customer[0].target-folder}
           # If you change this, then you need to change com.swisscom.health.des.cdr.client.AlwaysSameTempDirFactory as well
           source-folder: ${client.customer[0].source-folder}/invoice-test-source
-

@@ -13,6 +13,10 @@ import com.swisscom.health.des.cdr.client.config.FileSynchronization
 import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.IdpCredentials
 import com.swisscom.health.des.cdr.client.config.LastCredentialRenewalTime.Companion.BEGINNING_OF_TIME
+import com.swisscom.health.des.cdr.client.config.ProxyConfig
+import com.swisscom.health.des.cdr.client.config.ProxyPassword
+import com.swisscom.health.des.cdr.client.config.ProxyUrl
+import com.swisscom.health.des.cdr.client.config.ProxyUsername
 import com.swisscom.health.des.cdr.client.config.RenewCredential
 import com.swisscom.health.des.cdr.client.config.Scope
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
@@ -349,7 +353,11 @@ internal class FileMonitoringServiceTest {
             fileBusyTestInterval = Duration.ofSeconds(1L),
             fileBusyTestTimeout = Duration.ofSeconds(1L),
             fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-            proxyConfig = null,
+            proxyConfig = ProxyConfig(
+                url = ProxyUrl(""),
+                username = ProxyUsername(""),
+                password = ProxyPassword(""),
+            ),
             oldFileThreshold = Duration.ofHours(2L),
             fileSystemCheckInterval = Duration.ofMinutes(5L),
         )
