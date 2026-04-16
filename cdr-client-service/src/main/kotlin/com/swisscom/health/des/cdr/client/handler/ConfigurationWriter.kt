@@ -135,6 +135,7 @@ internal class ConfigurationWriter(
                                     // TODO: Implement a rollback strategy!
                                     logger.warn {
                                         "Configuration item '${changedConfigItem.propertyPath}' was changed, but is not writable! " +
+                                                "Reason: '${changedConfigItem::class.simpleName}'. " +
                                                 "Skipping update for this item!"
                                     }
                                 }

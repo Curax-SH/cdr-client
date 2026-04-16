@@ -218,7 +218,7 @@ class ConfigurationWriterTest {
     }
 
     @Test
-    fun `successful renewal of client secret in a YAML file`() {
+    fun `successful renewal of file sync enabled-disabled in a YAML file`() {
         val configFile = tempConfigDir.resolve("unknown_config_format.yaml").apply {
             createFile()
             writeText(FILE_SYNC_YAML)
@@ -261,20 +261,51 @@ class ConfigurationWriterTest {
     }
 
     @Test
-    @Disabled("Unknown what logic leads to this not working, but the Nullable proxyConfig is responsible for it")
+    @Disabled("Multiple origins actually cause the configuration item to be skipped, but `updateClientServiceConfiguration(..)` still reports " +
+            "success. Should we introduce a 'partial success' return value to propagate the fact to the caller?")
     fun `multiple known origins for property should fail`() {
+        val configFile = tempConfigDir.resolve("unknown_config_format.yaml").apply {
+            createFile()
+            writeText(FILE_SYNC_YAML)
+        }
+        val fileSystemResource = FileSystemResource(configFile)
         val propOrigin1 = mockk<TextResourceOrigin>()
         val propOrigin2 = mockk<TextResourceOrigin>()
+        every { propOrigin1.resource } returns fileSystemResource
+        every { propOrigin2.resource } returns fileSystemResource
         val propSource1 = mockk<OriginTrackedMapPropertySource>()
         val propSource2 = mockk<OriginTrackedMapPropertySource>()
         every { propSource1.getOrigin("client.local-folder") } returns propOrigin1
         every { propSource1.getOrigin("client.proxy-config.username") } returns propOrigin1
         every { propSource1.getOrigin("client.proxy-config.url") } returns propOrigin1
         every { propSource1.getOrigin("client.proxy-config.password") } returns propOrigin1
-        every { propSource2.getOrigin("client.local-folder") } returns propOrigin2
-        every { propSource2.getOrigin("client.proxy-config.username") } returns propOrigin2
-        every { propSource2.getOrigin("client.proxy-config.url") } returns propOrigin2
-        every { propSource2.getOrigin("client.proxy-config.password") } returns propOrigin2
+        every { propSource1.getOrigin("client.idp-credentials.tenant-id") } returns propOrigin1
+        every { propSource1.getOrigin("client.idp-credentials.scope") } returns propOrigin1
+        every { propSource1.getOrigin("client.idp-credentials.renew-credential") } returns propOrigin1
+        every { propSource1.getOrigin("client.idp-credentials.last-credential-renewal-time") } returns propOrigin1
+        every { propSource1.getOrigin("client.idp-credentials.client-secret") } returns propOrigin1
+        every { propSource1.getOrigin("client.idp-credentials.client-id") } returns propOrigin1
+        every { propSource1.getOrigin("client.file-synchronization-enabled") } returns propOrigin1
+        every { propSource1.getOrigin("client.file-busy-test-strategy") } returns propOrigin1
+        every { propSource1.getOrigin("client.customer[0].connector-id") } returns propOrigin1
+        every { propSource1.getOrigin("client.credential-api.host") } returns propOrigin1
+        every { propSource1.getOrigin("client.cdr-api.host") } returns propOrigin1
+
+        every { propSource2.getOrigin("client.local-folder") } returns null
+        every { propSource2.getOrigin("client.proxy-config.username") } returns null
+        every { propSource2.getOrigin("client.proxy-config.url") } returns null
+        every { propSource2.getOrigin("client.proxy-config.password") } returns null
+        every { propSource2.getOrigin("client.idp-credentials.tenant-id") } returns null
+        every { propSource2.getOrigin("client.idp-credentials.scope") } returns null
+        every { propSource2.getOrigin("client.idp-credentials.renew-credential") } returns null
+        every { propSource2.getOrigin("client.idp-credentials.last-credential-renewal-time") } returns null
+        every { propSource2.getOrigin("client.idp-credentials.client-secret") } returns null
+        every { propSource2.getOrigin("client.idp-credentials.client-id") } returns null
+        every { propSource2.getOrigin("client.file-synchronization-enabled") } returns propOrigin2
+        every { propSource2.getOrigin("client.file-busy-test-strategy") } returns null
+        every { propSource2.getOrigin("client.customer[0].connector-id") } returns null
+        every { propSource2.getOrigin("client.credential-api.host") } returns null
+        every { propSource2.getOrigin("client.cdr-api.host") } returns null
         val propertySources = MutablePropertySources().apply {
             addLast(propSource1)
             addLast(propSource2)
