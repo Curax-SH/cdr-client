@@ -125,11 +125,7 @@ internal class ConfigurationWriter(
 
                 updatableItems
                     .filter { updatableConfigItem ->
-                        // Include items that have changed OR are new properties (even if unchanged)
-                        // New properties need to be written to the config file for the first time
-                        val hasChanged = updatableConfigItem.newValue != updatableConfigItem.currentValue
-                        val isNew = updatableConfigItem.isPropertyNew
-                        hasChanged || isNew
+                        updatableConfigItem.newValue != updatableConfigItem.currentValue
                     }.filter { changedConfigItem ->
                         (changedConfigItem is UpdatableConfigurationItem.WritableSource)
                             .also { isWritable ->
@@ -139,6 +135,7 @@ internal class ConfigurationWriter(
                                     // TODO: Implement a rollback strategy!
                                     logger.warn {
                                         "Configuration item '${changedConfigItem.propertyPath}' was changed, but is not writable! " +
+                                                "Reason: '${changedConfigItem::class.simpleName}'. " +
                                                 "Skipping update for this item!"
                                     }
                                 }
@@ -184,21 +181,8 @@ internal class ConfigurationWriter(
             var tmpNode = yamlNode as ObjectNode
             val remainingNodeNames = ArrayDeque(changedConfigItem.propertyPath.split(".").map { it.replace("""\[\d+]$""", "") })
             val toBeUpdatedNodeName = remainingNodeNames.removeLast()
-
-            // Navigate to the parent node, creating missing parent nodes as needed
             while (remainingNodeNames.isNotEmpty()) {
-                val nodeName = remainingNodeNames.removeFirst()
-                val existingNode = tmpNode.get(nodeName)
-
-                tmpNode = if (existingNode == null || !existingNode.isObject) {
-                    // Parent node doesn't exist or is not an object - create it
-                    val newNode = tmpNode.putObject(nodeName)
-                    logger.debug { "Created missing parent node '$nodeName' in YAML structure" }
-                    newNode
-                } else {
-                    // Parent node exists - navigate to it
-                    existingNode as ObjectNode
-                }
+                tmpNode = tmpNode.get(remainingNodeNames.removeFirst()) as ObjectNode
             }
 
             // unbox kotlin value classes
@@ -298,22 +282,11 @@ internal class ConfigurationWriter(
             // pop the most recently added configuration node from the stack
             val currentConfigItem: NamedConfigurationItem = configItems.removeLast()
 
-            // Get children from both current and new values to handle nullable PropertyNameAware fields
-            // When a nullable PropertyNameAware field changes from null → non-null or vice versa,
-            // we need to check BOTH current and new values to find all PropertyNameAware children
+            // the current configuration is reflected in the environment of the spring context -> use the current config to decide whether we reached a leaf
+            // node in the tree of updatable configuration items and if so, find the property source for that item in the environment
             val currentNamedChildren: List<PropertyNameAware> = getPropertyNameAwareChildren(currentConfigItem.currentValue)
-            val newNamedChildren: List<PropertyNameAware> = getPropertyNameAwareChildren(currentConfigItem.newValue)
 
-            // Combine and deduplicate children by property name
-            val allChildrenByName = (currentNamedChildren + newNamedChildren)
-                .groupBy { it.propertyName }
-                .mapValues { (_, children) ->
-                    // Prefer non-null current value, otherwise use new value
-                    children.firstOrNull { it == currentNamedChildren.find { c -> c.propertyName == it.propertyName } }
-                        ?: children.first()
-                }
-
-            if (allChildrenByName.isEmpty()) {
+            if (currentNamedChildren.isEmpty()) {
                 // if we have reached a leaf node in the tree of updatable configuration items, then
                 // we try to resolve its property source and keep the node for potential updates
                 val propertyPathString = currentConfigItem.propertyPath.joinToString(separator = ".")
@@ -322,19 +295,7 @@ internal class ConfigurationWriter(
                         is NamedConfigurationItem.SinglePath -> currentConfigItem
                         is NamedConfigurationItem.MultiPath -> currentConfigItem.singlePathItem
                     }
-
-                // Try to get property sources for this property
-                val propertySources = getPropertySources(propertyPathString)
-
-                // Determine if this is a new property (no origin found)
-                val isPropertyNew = propertySources.isEmpty()
-
-                // If no sources found, use fallback location
-                val finalPropertySources = propertySources.ifEmpty {
-                    getFallbackPropertySource(propertyPathString)
-                }
-
-                configItemToUpdate.toUpdatableConfigurationItem(finalPropertySources, isPropertyNew)
+                configItemToUpdate.toUpdatableConfigurationItem(getPropertySources(propertyPathString))
                     .also {
                         when (it) {
                             is UpdatableConfigurationItem.UnknownSource ->
@@ -349,14 +310,11 @@ internal class ConfigurationWriter(
                         updatableConfigItemCollector.add(it)
                     }
             } else {
-                // Iterate over all children (from both current and new) and pair them correctly
-                allChildrenByName.values.forEach { child: PropertyNameAware ->
-                    val currentChild = currentNamedChildren.find { it.propertyName == child.propertyName }
-                    val newChild = newNamedChildren.find { it.propertyName == child.propertyName }
-
+                val newNamedChildren: List<PropertyNameAware> = getPropertyNameAwareChildren(currentConfigItem.newValue)
+                currentNamedChildren.forEachIndexed { idx: Int, currentChild: PropertyNameAware ->
                     currentConfigItem.newChild(
-                        currentValue = currentChild ?: newChild!!, // Use current if exists, otherwise use new
-                        newValue = newChild,
+                        currentValue = currentChild,
+                        newValue = newNamedChildren.getOrNull(idx),
                     ).also { configItems.add(it) }
                 }
             }
@@ -398,32 +356,6 @@ internal class ConfigurationWriter(
         }.getOrThrow()
 
         return origin
-    }
-
-    /**
-     * Provides a fallback property source for properties that don't have an origin in the configuration.
-     * This is used for new configuration properties that were added after deployment to existing clients.
-     *
-     * The fallback uses the same file where `client.local-folder` is defined, as that property is always
-     * present and writable in customer configuration files.
-     *
-     * @param propertyPath the property path that has no origin
-     * @return a list containing the writable resource of client.local-folder, or empty list if not found
-     */
-    private fun getFallbackPropertySource(propertyPath: String): List<WritableResource> {
-        logger.info { "No origin found for property '$propertyPath', using fallback to '$FALLBACK_PROPERTY_PATH' location" }
-
-        return runCatching {
-            // Use client.local-folder as the fallback property since it's always present in customer configs
-            findPropertyOrigin(FALLBACK_PROPERTY_PATH)
-        }.mapCatching { origins: Set<Origin> ->
-            origins.mapNotNull { origin -> origin.fileBackedResource }
-        }.mapCatching { resources: List<Resource> ->
-            resources.mapNotNull { resource -> resource.writeableResource }
-        }.getOrElse { exception ->
-            logger.warn(exception) { "Failed to get fallback property source for '$propertyPath'" }
-            emptyList()
-        }
     }
 
     /**
@@ -542,7 +474,7 @@ internal class ConfigurationWriter(
             newValue: PropertyNameAware? = null,
         ): NamedConfigurationItem
 
-        fun toUpdatableConfigurationItem(writableResources: List<WritableResource>, isPropertyNew: Boolean): UpdatableConfigurationItem {
+        fun toUpdatableConfigurationItem(writableResources: List<WritableResource>): UpdatableConfigurationItem {
             val singlePathValue =
                 when (this) {
                     is SinglePath -> this
@@ -553,7 +485,6 @@ internal class ConfigurationWriter(
                     propertyPath = singlePathValue.propertyPath.joinToString(separator = "."),
                     currentValue = singlePathValue.currentValue,
                     newValue = singlePathValue.newValue!!,
-                    isPropertyNew = isPropertyNew
                 )
 
                 1 -> UpdatableConfigurationItem.WritableSource(
@@ -561,7 +492,6 @@ internal class ConfigurationWriter(
                     currentValue = singlePathValue.currentValue,
                     newValue = singlePathValue.newValue!!,
                     writableResource = writableResources.first(),
-                    isPropertyNew = isPropertyNew
                 )
 
                 else -> UpdatableConfigurationItem.AmbiguousWritableSource(
@@ -569,7 +499,6 @@ internal class ConfigurationWriter(
                     currentValue = singlePathValue.currentValue,
                     newValue = singlePathValue.newValue!!,
                     writableResources = writableResources,
-                    isPropertyNew = isPropertyNew
                 )
             }
 
@@ -658,13 +587,11 @@ internal class ConfigurationWriter(
         val propertyPath: String
         val currentValue: Any
         val newValue: Any
-        val isPropertyNew: Boolean
 
         data class WritableSource(
             override val propertyPath: String,
             override val currentValue: Any,
             override val newValue: Any,
-            override val isPropertyNew: Boolean,
             val writableResource: WritableResource,
         ) : UpdatableConfigurationItem
 
@@ -672,7 +599,6 @@ internal class ConfigurationWriter(
             override val propertyPath: String,
             override val currentValue: Any,
             override val newValue: Any,
-            override val isPropertyNew: Boolean,
             val writableResources: List<WritableResource>,
         ) : UpdatableConfigurationItem {
             init {
@@ -684,12 +610,7 @@ internal class ConfigurationWriter(
             override val propertyPath: String,
             override val currentValue: Any,
             override val newValue: Any,
-            override val isPropertyNew: Boolean,
         ) : UpdatableConfigurationItem
-    }
-
-    companion object {
-        private const val FALLBACK_PROPERTY_PATH = "client.local-folder"
     }
 
 }

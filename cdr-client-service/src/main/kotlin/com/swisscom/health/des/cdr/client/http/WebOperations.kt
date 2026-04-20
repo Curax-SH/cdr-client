@@ -1,7 +1,6 @@
 package com.swisscom.health.des.cdr.client.http
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.Constants.SHUTDOWN_DELAY
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.CREDENTIAL_VALIDATION_FAILED
@@ -205,7 +204,7 @@ internal class WebOperations(
             logger.trace { "validating credentials" }
             logger.info {
                 val proxy = config.proxyConfig
-                if (proxy != null && proxy.url.value != EMPTY_STRING) {
+                if (proxy.url.value.isNotBlank()) {
                     "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' " +
                             "with proxy config: ${proxy.url}"
                 } else {

@@ -16,11 +16,8 @@ plugins {
     alias(libs.plugins.spring.dependency.management) apply false
     kotlin("jvm").version(libs.versions.kotlin.lang) apply false
     kotlin("plugin.spring").version(libs.versions.kotlin.lang) apply false
-    // https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.kotlin.configuration-properties
-    // KAPT is end-of-life, but KSP is not supported yet: https://github.com/spring-projects/spring-boot/issues/28046
-    kotlin("kapt").version(libs.versions.kotlin.lang) apply false
 
-    // but we actually want to run detekt in all subprojects
+    // detekt should run in all subprojects -> applies here
     alias(libs.plugins.detekt)
 }
 

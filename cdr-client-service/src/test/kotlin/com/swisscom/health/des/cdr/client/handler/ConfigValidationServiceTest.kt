@@ -17,6 +17,10 @@ import com.swisscom.health.des.cdr.client.config.FileSynchronization
 import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.IdpCredentials
 import com.swisscom.health.des.cdr.client.config.LastCredentialRenewalTime.Companion.BEGINNING_OF_TIME
+import com.swisscom.health.des.cdr.client.config.ProxyConfig
+import com.swisscom.health.des.cdr.client.config.ProxyPassword
+import com.swisscom.health.des.cdr.client.config.ProxyUrl
+import com.swisscom.health.des.cdr.client.config.ProxyUsername
 import com.swisscom.health.des.cdr.client.config.RenewCredential
 import com.swisscom.health.des.cdr.client.config.Scope
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
@@ -645,7 +649,11 @@ internal class ConfigValidationServiceTest {
                 maxDelay = Duration.ofSeconds(5),
                 multiplier = 2.0,
             ),
-            proxyConfig = null,
+            proxyConfig = ProxyConfig(
+                url = ProxyUrl(""),
+                username = ProxyUsername(""),
+                password = ProxyPassword(""),
+            ),
             oldFileThreshold = Duration.ofHours(2L),
             fileSystemCheckInterval = Duration.ofMinutes(5L),
         )
@@ -806,7 +814,7 @@ internal class ConfigValidationServiceTest {
             // Should have at least one path detail with directory not found
             assertTrue(failure.validationDetails.any {
                 it is DTOs.ValidationDetail.PathDetail &&
-                it.messageKey == DTOs.ValidationMessageKey.DIRECTORY_NOT_FOUND
+                        it.messageKey == DTOs.ValidationMessageKey.DIRECTORY_NOT_FOUND
             })
         } finally {
             Files.deleteIfExists(tempSourceDir)

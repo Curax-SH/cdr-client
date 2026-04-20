@@ -41,8 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.alorma.compose.settings.ui.SettingsMenuLink
-import com.alorma.compose.settings.ui.base.internal.SettingsTileColors
-import com.alorma.compose.settings.ui.base.internal.SettingsTileDefaults
+import com.alorma.compose.settings.ui.SettingsTileDefaults
 import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DomainObjects
@@ -55,6 +54,7 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.e
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_folder_needs_absolute_path_error
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_folder_overlaps_non_error
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_illegal_mode
+import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_illegal_value
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_is_credentials
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_is_placeholder
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_no_connector
@@ -67,7 +67,6 @@ import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.e
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_proxy_url_must_start_with_http_or_https
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_test_timeout_too_long
 import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_value_is_mandatory
-import com.swisscom.health.des.cdr.client.ui.cdr_client_ui.generated.resources.error_illegal_value
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -159,21 +158,7 @@ internal fun OnOffSwitch(
 //        logger.trace { "ClientServiceOption has been (re-)composed." }
 //    }
     // Only the switch is clickable, click changes switch state
-    // TODO: I am sure there is a less redundant way to set just the container color by using `LocalSettingsTileColors`, but how?
-    val colors = SettingsTileDefaults.colors().run {
-        SettingsTileColors(
-            // copied from com.swisscom.health.des.cdr.client.ui.ComposeUtilsKt.CollapsibleGroup
-            containerColor = containerColor,
-            titleColor = titleColor,
-            iconColor = iconColor,
-            subtitleColor = subtitleColor,
-            actionColor = actionColor,
-            disabledTitleColor = disabledTitleColor,
-            disabledIconColor = disabledIconColor,
-            disabledSubtitleColor = disabledSubtitleColor,
-            disabledActionColor = disabledActionColor,
-        )
-    }
+    // FIXME: How to remove the mouse-over highlighting?
     SettingsMenuLink(
         title = { Text(text = title) },
         subtitle = { Text(text = subtitle) },
@@ -186,7 +171,9 @@ internal fun OnOffSwitch(
             )
         },
         onClick = { },
-        colors = colors
+        colors = SettingsTileDefaults.colors().copy(
+            containerColor = Color.Transparent
+        )
     ).also {
         logger.trace { "on/off switch has been (re-)composed - field '$name'" }
     }
@@ -275,7 +262,7 @@ internal fun DropDownList(
 
 @Composable
 internal fun CollapsibleGroup(
-    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    containerColor: Color = MaterialTheme.colorScheme.background,
     modifier: Modifier,
     title: String,
     initiallyExpanded: Boolean = false,
