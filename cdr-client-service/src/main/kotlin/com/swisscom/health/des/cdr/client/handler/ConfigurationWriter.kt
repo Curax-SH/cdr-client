@@ -412,16 +412,14 @@ internal class ConfigurationWriter(
             else -> {
                 value::class.memberProperties
                     .mapNotNull { kProperty -> kProperty.call(value) }
-                    .filter { propertyValue -> propertyValue is PropertyNameAware }
-                    .map { propertyValue -> propertyValue as PropertyNameAware }
+                    .filterIsInstance<PropertyNameAware>()
                     .toList()
             }
         }
 
     private fun validate(config: CdrClientConfig): Map<String, ValidationMessageKey> {
         logger.debug { "config to validate: '$config'" }
-        val validateAllConfigurationItems: ValidationResult = configValidationService.validateAllConfigurationItems(config.toDto())
-        return when (validateAllConfigurationItems) {
+        return when (val validateAllConfigurationItems: ValidationResult = configValidationService.validateAllConfigurationItems(config.toDto())) {
             is ValidationResult.Success -> emptyMap()
             is ValidationResult.Failure -> validateAllConfigurationItems.validationDetails.associate { detail ->
                 when (detail) {
