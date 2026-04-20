@@ -324,7 +324,6 @@ class DTOs {
             val lastCredentialRenewalTime: Instant,
         ) {
             companion object {
-                const val SECRET_MASK = "*********"
                 @JvmStatic
                 val EMPTY = IdpCredentials(
                     tenantId = EMPTY_STRING,

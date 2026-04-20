@@ -12,6 +12,7 @@ import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationResult
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig
+import com.swisscom.health.des.cdr.client.config.ClientSecret
 import com.swisscom.health.des.cdr.client.config.PropertyNameAware
 import com.swisscom.health.des.cdr.client.config.toDto
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -125,7 +126,10 @@ internal class ConfigurationWriter(
 
                 updatableItems
                     .filter { updatableConfigItem ->
-                        updatableConfigItem.newValue != updatableConfigItem.currentValue
+                        updatableConfigItem.newValue != updatableConfigItem.currentValue &&
+                                // ignore masked values; the mask must not be written back to the configuration;
+                                // right now the only masked value is the OAuth client secret
+                                updatableConfigItem.newValue != ClientSecret.MASKED_SECRET
                     }.filter { changedConfigItem ->
                         (changedConfigItem is UpdatableConfigurationItem.WritableSource)
                             .also { isWritable ->
@@ -417,7 +421,7 @@ internal class ConfigurationWriter(
     private fun validate(config: CdrClientConfig): Map<String, ValidationMessageKey> {
         logger.debug { "config to validate: '$config'" }
         val validateAllConfigurationItems: ValidationResult = configValidationService.validateAllConfigurationItems(config.toDto())
-        return when(validateAllConfigurationItems) {
+        return when (validateAllConfigurationItems) {
             is ValidationResult.Success -> emptyMap()
             is ValidationResult.Failure -> validateAllConfigurationItems.validationDetails.associate { detail ->
                 when (detail) {
@@ -534,7 +538,7 @@ internal class ConfigurationWriter(
 
             override fun newChild(
                 currentValue: PropertyNameAware,
-                newValue: PropertyNameAware?
+                newValue: PropertyNameAware?,
             ): NamedConfigurationItem {
                 if (currentValue is Collection<*>) {
                     // if the current item is a collection, then we create a new `NamedConfigurationItem.Collection`, which remembers the collection item in an
@@ -565,12 +569,12 @@ internal class ConfigurationWriter(
             override val currentValue: PropertyNameAware,
             override val newValue: PropertyNameAware? = null,
             override val propertyPath: List<String>,
-            val singlePathItem: SinglePath
+            val singlePathItem: SinglePath,
         ) : ValidatedItem(currentValue, newValue, propertyPath) {
 
             override fun newChild(
                 currentValue: PropertyNameAware,
-                newValue: PropertyNameAware?
+                newValue: PropertyNameAware?,
             ): NamedConfigurationItem =
                 // never overwrite the config item for the top-level collection -> always inherit the `singlePathItem` from the parent object
                 this.copy(
