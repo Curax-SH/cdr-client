@@ -64,7 +64,7 @@ object ConfigInit {
                         escalatingFind(DEFAULT_CUSTOMER_CONFIG_FILE, pwd)
                     }
                     check(defaultCustomerConfigFile.size == 1) {
-                        "Expected exactly one default customer configuration file with name 'DEFAULT_CUSTOMER_CONFIG_FILE$', but found " +
+                        "Expected exactly one default customer configuration file with name '$DEFAULT_CUSTOMER_CONFIG_FILE', but found " +
                                 "'${defaultCustomerConfigFile.size}' files: '$defaultCustomerConfigFile'; search started in '$pwd'"
                     }
                     logMsg { "found customer configuration template at: '${defaultCustomerConfigFile.first().absolute()}'" }
