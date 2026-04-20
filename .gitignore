@@ -43,5 +43,6 @@ build/
 bin/
 .kotlin/
 output/
+output_w2019/
 publish/
 cdr-client-watchdog/obj/
