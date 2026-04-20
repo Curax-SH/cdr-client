@@ -1,3 +1,4 @@
+version: 1.2
 client:
   file-synchronization-enabled: true
   schedule-delay: PT30M
@@ -10,6 +11,10 @@ client:
     renew-credential: true
     last-credential-renewal-time: 2030-01-01T00:00:00Z
   idp-endpoint: http://localhost/${client.idp-credentials.tenant-id}/oauth2/v2.0/token
+  proxy-config:
+    url: ${CDR_CLIENT_PROXY_URL:}
+    username: ${CDR_CLIENT_PROXY_USERNAME:}
+    password: ${CDR_CLIENT_PROXY_PASSWORD:}
   file-busy-test-strategy: file_size_changed # valid values are `never_busy`, `file_size_changed`, `always_busy`
   cdr-api:
     scheme: http
@@ -79,4 +84,3 @@ client:
       source-folder: ${CDR_CLIENT_SOURCE_FOLDER:${HOME}/Documents/cdr/source}/${client.customer[6].connector-id}
       source-archive-enabled: false
       mode: production
-

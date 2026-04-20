@@ -36,7 +36,7 @@ internal fun CdrClientConfig.toDto(): DTOs.CdrClientConfig {
         fileBusyTestInterval = fileBusyTestInterval,
         fileBusyTestTimeout = fileBusyTestTimeout,
         fileBusyTestStrategy = fileBusyTestStrategy.toDto(),
-        proxyConfig = proxyConfig?.toDto() ?: DTOs.CdrClientConfig.ProxyConfig.EMPTY,
+        proxyConfig = proxyConfig.toDto(),
         oldFileThreshold = oldFileThreshold,
         fileSystemCheckInterval = fileSystemCheckInterval,
     )

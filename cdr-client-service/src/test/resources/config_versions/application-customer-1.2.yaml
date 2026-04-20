@@ -3,7 +3,7 @@ client:
   file-synchronization-enabled: true
   local-folder: ${java.io.tmpdir}
   proxy-config:
-    url:
+    url: "https://proxy.internal:8080"
     username:
     password:
   idp-credentials:
