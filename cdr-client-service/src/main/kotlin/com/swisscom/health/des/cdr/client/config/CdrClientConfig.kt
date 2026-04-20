@@ -539,7 +539,7 @@ internal value class ClientSecret(val value: String) : PropertyNameAware {
     override val propertyName: String
         get() = PROPERTY_NAME
 
-    override fun toString(): String = "********"
+    override fun toString(): String = com.swisscom.health.des.cdr.client.common.DTOs.CdrClientConfig.IdpCredentials.SECRET_MASK
 
     companion object {
         const val PROPERTY_NAME = "client-secret"
