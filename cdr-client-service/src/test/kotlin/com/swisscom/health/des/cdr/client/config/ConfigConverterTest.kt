@@ -76,7 +76,7 @@ class ConfigConverterTest {
         fileSystemCheckInterval = Duration.ofMinutes(5L),
     )
 
-    private val configAllAbsolutePaths: CdrClientConfig = CdrClientConfig(
+    private val sameConfigButAbsolutePaths: CdrClientConfig = CdrClientConfig(
         fileSynchronizationEnabled = FileSynchronization.ENABLED,
         customer = Customer(
             mutableListOf(
@@ -138,11 +138,16 @@ class ConfigConverterTest {
         fileSystemCheckInterval = Duration.ofMinutes(5L),
     )
 
-
     @Test
     fun `there and back again - make sure no information is lost in translation`() {
         val configRoundTrip = configAllRelativePaths.toDto().toCdrClientConfig()
-        assertEquals(configAllAbsolutePaths, configRoundTrip)
+        sameConfigButAbsolutePaths.copy(
+            idpCredentials = sameConfigButAbsolutePaths.idpCredentials.copy(
+                clientSecret = ClientSecret.MASKED_SECRET
+            )
+        ).also { sameConfigButAbsolutePathsMaskedSecret ->
+            assertEquals(sameConfigButAbsolutePathsMaskedSecret, configRoundTrip)
+        }
     }
 
     private companion object {

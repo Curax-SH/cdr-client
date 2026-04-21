@@ -85,7 +85,7 @@ internal fun IdpCredentials.toDto(): DTOs.CdrClientConfig.IdpCredentials =
     DTOs.CdrClientConfig.IdpCredentials(
         tenantId = tenantId.id,
         clientId = clientId.id,
-        clientSecret = clientSecret.value,
+        clientSecret = if (clientSecret == ClientSecret.NO_SECRET) clientSecret.value else ClientSecret.MASKED_SECRET.value,
         scope = scope.scope,
         renewCredential = renewCredential.value,
         maxCredentialAge = maxCredentialAge,
