@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.jackson.dataformat.yaml)
     implementation(libs.jackson.module.kotlin)
     implementation(projects.cdrClientCommon)
+    implementation(libs.jna)
 
     testImplementation(libs.jacocoCore)
     testImplementation(libs.spring.boot.starter.test)
