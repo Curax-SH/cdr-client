@@ -93,7 +93,7 @@ internal data class CdrClientConfig(
         get() = PROPERTY_NAME
 
     private companion object {
-        const val PROPERTY_NAME = "client"
+        private const val PROPERTY_NAME = "client"
     }
 
     data class RetryTemplateConfig(
@@ -197,7 +197,7 @@ internal data class Connector(
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = ""
+        private const val PROPERTY_NAME = ""
     }
 
     /**
@@ -211,11 +211,13 @@ internal data class Connector(
     @JsonIgnore
     fun getEffectiveSourceArchiveFolder(): Path? =
         if (sourceArchiveEnabled) {
-            createDirectoryIfMissing(when (sourceArchiveFolder) {
-                null -> sourceFolder.resolve("archive")
-                sourceFolder -> sourceFolder.resolve("archive")
-                else -> sourceArchiveFolder
-            }.resolve(getDateNow()))
+            createDirectoryIfMissing(
+                when (sourceArchiveFolder) {
+                    null -> sourceFolder.resolve("archive")
+                    sourceFolder -> sourceFolder.resolve("archive")
+                    else -> sourceArchiveFolder
+                }.resolve(getDateNow())
+            )
         } else {
             null
         }
@@ -296,7 +298,7 @@ internal value class ConnectorId(val id: String) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "connector-id"
+        private const val PROPERTY_NAME = "connector-id"
     }
 }
 
@@ -325,7 +327,7 @@ internal data class CdrApi(
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "cdr-api"
+        private const val PROPERTY_NAME = "cdr-api"
     }
 }
 
@@ -339,7 +341,7 @@ internal data class CredentialApi(
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "credential-api"
+        private const val PROPERTY_NAME = "credential-api"
     }
 }
 
@@ -355,7 +357,7 @@ internal data class ProxyConfig(
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "proxy-config"
+        private const val PROPERTY_NAME = "proxy-config"
     }
 }
 
@@ -366,7 +368,7 @@ internal data class ProxyCredentials(
 
 @Suppress("JavaDefaultMethodsNotOverriddenByDelegation")
 internal data class Customer(
-    private val customer: MutableList<Connector>
+    private val customer: MutableList<Connector>,
 ) : PropertyNameAware, MutableList<Connector> by customer {
 
     // required by SpringBoot
@@ -376,7 +378,7 @@ internal data class Customer(
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "customer"
+        private const val PROPERTY_NAME = "customer"
     }
 }
 
@@ -386,7 +388,7 @@ internal value class Scope(val scope: String) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "scope"
+        private const val PROPERTY_NAME = "scope"
     }
 }
 
@@ -396,7 +398,7 @@ internal value class FileBusyTestStrategyProperty(val strategy: CdrClientConfig.
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "file-busy-test-strategy"
+        private const val PROPERTY_NAME = "file-busy-test-strategy"
 
         @JvmStatic
         fun valueOf(value: String): FileBusyTestStrategyProperty =
@@ -475,7 +477,7 @@ internal data class IdpCredentials(
         get() = maxCredentialAge.toMillis() - ChronoUnit.MILLIS.between(lastCredentialRenewalTime.instant, Instant.now())
 
     companion object {
-        const val PROPERTY_NAME = "idp-credentials"
+        private const val PROPERTY_NAME = "idp-credentials"
 
         @JvmStatic
         val DEFAULT_MAX_CREDENTIAL_AGE: Duration = Duration.ofDays(365L)
@@ -490,7 +492,7 @@ internal value class TempDownloadDir(val path: Path) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "local-folder"
+        private const val PROPERTY_NAME = "local-folder"
     }
 }
 
@@ -520,7 +522,7 @@ internal value class TenantId(val id: String) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "tenant-id"
+        private const val PROPERTY_NAME = "tenant-id"
     }
 }
 
@@ -530,19 +532,38 @@ internal value class ClientId(val id: String) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "client-id"
+        private const val PROPERTY_NAME = "client-id"
     }
 }
 
 @JvmInline
-internal value class ClientSecret(val value: String) : PropertyNameAware {
+internal value class ClientSecret private constructor (val value: String) : PropertyNameAware {
     override val propertyName: String
         get() = PROPERTY_NAME
 
-    override fun toString(): String = "********"
+    override fun toString(): String = MASKED_VALUE
 
     companion object {
-        const val PROPERTY_NAME = "client-secret"
+        private const val PROPERTY_NAME = "client-secret"
+
+        private const val MASKED_VALUE = "*********"
+
+        private const val MASK_CHAR = '*'
+
+        @JvmStatic
+        val NO_SECRET = ClientSecret(value = EMPTY_STRING)
+
+        @JvmStatic
+        val MASKED_SECRET = ClientSecret(value = MASKED_VALUE)
+
+        operator fun invoke(value: String): ClientSecret =
+            when {
+                value.isBlank() -> NO_SECRET
+                value.isAllAsterisks() -> MASKED_SECRET
+                else -> ClientSecret(value)
+            }
+
+        private fun String.isAllAsterisks(): Boolean = isNotEmpty() && all { it == MASK_CHAR }
     }
 }
 
@@ -552,7 +573,7 @@ internal value class LastCredentialRenewalTime(val instant: Instant) : PropertyN
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "last-credential-renewal-time"
+        private const val PROPERTY_NAME = "last-credential-renewal-time"
 
         @JvmStatic
         val BEGINNING_OF_TIME: LastCredentialRenewalTime = LastCredentialRenewalTime(Instant.ofEpochSecond(0L))
@@ -573,7 +594,7 @@ internal value class Host(val fqdn: String) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "host"
+        private const val PROPERTY_NAME = "host"
     }
 }
 
@@ -591,7 +612,7 @@ internal value class ProxyUrl(val value: String) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "url"
+        private const val PROPERTY_NAME = "url"
     }
 }
 
@@ -601,7 +622,7 @@ internal value class ProxyUsername(val value: String) : PropertyNameAware {
         get() = PROPERTY_NAME
 
     companion object {
-        const val PROPERTY_NAME = "username"
+        private const val PROPERTY_NAME = "username"
     }
 }
 
@@ -613,7 +634,7 @@ internal value class ProxyPassword(val value: String) : PropertyNameAware {
     override fun toString(): String = "********"
 
     companion object {
-        const val PROPERTY_NAME = "password"
+        private const val PROPERTY_NAME = "password"
     }
 }
 
