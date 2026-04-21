@@ -156,8 +156,11 @@ object ConfigInit {
             Platform.isWindows() -> {
                 logMsg { "Removing all ACLs but for SYSTEM and Administrators groups from '$this'." }
                 val aclView = Files.getFileAttributeView(this, AclFileAttributeView::class.java)
-                // remove all ACLs for users/groups that do not have 'system' or 'administrators' in their name; is this good enough?
-                aclView.acl = aclView.acl.filter { aclEntry -> aclEntry.principal().name.lowercase().matches("^.*(system|administrators)$".toRegex()) }
+                // remove all ACLs for users/groups that do not have 'system' or 'administrators' (en/de/fr/it) in their name; is this good enough,
+                // or do we have to go down the JNA route and call Windows' native API to query the administrator group principal by SID?
+                aclView.acl = aclView.acl.filter { aclEntry ->
+                    aclEntry.principal().name.lowercase().matches("""^.*(system|administrators|administratoren|administrateurs|amministratori)$""".toRegex())
+                }
                 logMsg { "Remaining ACL entries: ${aclView.acl}" }
             }
 
