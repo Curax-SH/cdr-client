@@ -164,8 +164,6 @@ object ConfigInit {
                 logMsg { "Remaining ACL entries: ${aclView.acl}" }
             }
 
-            // already handled by Debian package `postinst` script, code is here for "symmetry" with Windows;
-            // should `postinst` set file permissions?
             Platform.isLinux() -> {
                 logMsg { "Removing world permissions from '$this'." }
                 val worldPermissions = setOf(
