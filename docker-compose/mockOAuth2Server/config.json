@@ -12,6 +12,24 @@
       "tokenExpiry":360,
       "requestMappings": [
         {
+          "requestParam": "client_secret",
+          "match": "\\*\\*\\*\\*\\*\\*\\*\\*\\*",
+          "claims": {
+            "exp": "1616417062",
+            "sub": "${clientId}",
+            "azp": "${clientId}",
+            "roles": [
+              "CdrApi.ReadWrite.OwnedBy"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "issuerId": "test-tenant-client-id/oauth2/v2.0",
+      "tokenExpiry":360,
+      "requestMappings": [
+        {
           "requestParam": "client_id",
           "match": "*",
           "claims": {

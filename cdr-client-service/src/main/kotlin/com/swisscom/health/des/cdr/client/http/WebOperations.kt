@@ -12,6 +12,8 @@ import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MO
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_VALUE
 import com.swisscom.health.des.cdr.client.common.getRootestCause
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig
+import com.swisscom.health.des.cdr.client.config.ClientSecret
+import com.swisscom.health.des.cdr.client.config.ClientSecret.Companion.MASKED_SECRET
 import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService
 import com.swisscom.health.des.cdr.client.config.toCdrClientConfig
 import com.swisscom.health.des.cdr.client.config.toDto
@@ -211,8 +213,12 @@ internal class WebOperations(
                     "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' (no proxy configured)"
                 }
             }
-
-            authService.getNewAccessToken(idpCredentials.toCdrClientConfig(), URI(correctedIdpEndpoint).toURL(), false)
+            val effectiveCredentials = if (ClientSecret(idpCredentials.clientSecret) == MASKED_SECRET) {
+                idpCredentials.copy(clientSecret = config.idpCredentials.clientSecret.value)
+            } else {
+                idpCredentials
+            }
+            authService.getNewAccessToken(effectiveCredentials.toCdrClientConfig(), URI(correctedIdpEndpoint).toURL(), false)
         }
     }.fold(
         onSuccess = { authNResponse: OAuth2AuthNService.AuthNResponse ->

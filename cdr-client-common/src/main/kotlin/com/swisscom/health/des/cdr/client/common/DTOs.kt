@@ -53,7 +53,9 @@ class DTOs {
 
         @Serializable
         @SerialName("success")
-        object Success : ValidationResult
+        object Success : ValidationResult {
+            override fun toString(): String = "Success"
+        }
 
         @Serializable
         @SerialName("failure")
