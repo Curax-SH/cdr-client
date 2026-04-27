@@ -1,7 +1,6 @@
 package com.swisscom.health.des.cdr.client.http
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.swisscom.health.des.cdr.client.common.Constants.EMPTY_STRING
 import com.swisscom.health.des.cdr.client.common.Constants.SHUTDOWN_DELAY
 import com.swisscom.health.des.cdr.client.common.DTOs
 import com.swisscom.health.des.cdr.client.common.DTOs.ValidationMessageKey.CREDENTIAL_VALIDATION_FAILED
@@ -13,11 +12,14 @@ import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MO
 import com.swisscom.health.des.cdr.client.common.DomainObjects.ValidationType.MODE_VALUE
 import com.swisscom.health.des.cdr.client.common.getRootestCause
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig
+import com.swisscom.health.des.cdr.client.config.ClientSecret
+import com.swisscom.health.des.cdr.client.config.ClientSecret.Companion.MASKED_SECRET
 import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService
 import com.swisscom.health.des.cdr.client.config.toCdrClientConfig
 import com.swisscom.health.des.cdr.client.config.toDto
 import com.swisscom.health.des.cdr.client.handler.ConfigValidationService
 import com.swisscom.health.des.cdr.client.handler.ConfigurationWriter
+import com.swisscom.health.des.cdr.client.handler.FileMonitoringService
 import com.swisscom.health.des.cdr.client.handler.ShutdownService
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_AUTHENTICATED
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_COMMUNICATION_ERROR
@@ -65,6 +67,7 @@ internal class WebOperations(
     @param:Qualifier("retryIoAndServerErrors")
     private val retryIOExceptionsAndServerErrors: RetryTemplate,
     private val authService: OAuth2AuthNService,
+    private val fileMonitoringService: FileMonitoringService,
 ) {
     /*
      * BEGIN - (Configuration) Validation Endpoints
@@ -203,15 +206,19 @@ internal class WebOperations(
             logger.trace { "validating credentials" }
             logger.info {
                 val proxy = config.proxyConfig
-                if (proxy != null && proxy.url.value != EMPTY_STRING) {
+                if (proxy.url.value.isNotBlank()) {
                     "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' " +
                             "with proxy config: ${proxy.url}"
                 } else {
                     "Attempting to validate credentials by requesting a new access token from IdP endpoint '$correctedIdpEndpoint' (no proxy configured)"
                 }
             }
-
-            authService.getNewAccessToken(idpCredentials.toCdrClientConfig(), URI(correctedIdpEndpoint).toURL(), false)
+            val effectiveCredentials = if (ClientSecret(idpCredentials.clientSecret) == MASKED_SECRET) {
+                idpCredentials.copy(clientSecret = config.idpCredentials.clientSecret.value)
+            } else {
+                idpCredentials
+            }
+            authService.getNewAccessToken(effectiveCredentials.toCdrClientConfig(), URI(correctedIdpEndpoint).toURL(), false)
         }
     }.fold(
         onSuccess = { authNResponse: OAuth2AuthNService.AuthNResponse ->
@@ -314,7 +321,7 @@ internal class WebOperations(
      * status of the different indicators is translated into an application-specific
      * [status code][DTOs.StatusResponse.StatusCode].
      *
-     * @return a [DTOs.StatusResponse] containing the status code of the client service
+     * @return a [DTOs.StatusResponse] containing the status code of the client service and file monitoring status
      * @see [HealthIndicators]
      */
     @Suppress("CyclomaticComplexMethod")
@@ -354,6 +361,7 @@ internal class WebOperations(
         return ResponseEntity.ok(
             DTOs.StatusResponse(
                 statusCode = status,
+                fileMonitoringStatus = fileMonitoringService.monitoringStatus.value
             )
         )
     }.getOrElse { error: Throwable ->

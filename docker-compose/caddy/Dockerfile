@@ -1,5 +1,5 @@
-FROM caddy:2.10.0
+FROM caddy:2.11
 
-RUN apk update && apk upgrade && apk add curl
+RUN apk update && apk add curl && rm -rf /var/cache/apk/*
 
 COPY ./Caddyfile /etc/caddy/Caddyfile

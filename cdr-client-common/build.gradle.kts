@@ -21,8 +21,14 @@ idea {
 }
 
 kotlin {
-    jvmToolchain(libs.versions.jdk.get().toInt())
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.get().toInt()))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
+    }
+
     compilerOptions {
+        progressiveMode = true
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(libs.versions.jdk.get())
         freeCompilerArgs = listOf("-Xjsr305=strict")
     }
 }

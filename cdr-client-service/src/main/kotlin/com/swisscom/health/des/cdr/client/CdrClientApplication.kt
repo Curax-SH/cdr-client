@@ -1,27 +1,23 @@
 package com.swisscom.health.des.cdr.client
 
-import com.swisscom.health.des.cdr.client.common.escalatingFind
+import com.sun.jna.Platform
 import com.swisscom.health.des.cdr.client.config.CdrClientConfig
 import org.springframework.boot.actuate.autoconfigure.scheduling.ScheduledTasksObservabilityAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
 import org.springframework.scheduling.annotation.EnableScheduling
+import java.nio.file.LinkOption
 import java.nio.file.Path
-import kotlin.io.path.absolute
-import kotlin.io.path.createDirectories
-import kotlin.io.path.createParentDirectories
+import kotlin.io.path.appendText
+import kotlin.io.path.createFile
 import kotlin.io.path.exists
-import kotlin.io.path.isReadable
+import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 
-private const val DEFAULT_CUSTOMER_CONFIG_FILE = "default-application-customer.yaml"
-private const val SERVICE_LOGBACK_FILE = "logback-service.xml"
 private const val SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY = "spring.config.additional-location"
-private const val LOGBACK_CONFIGURATION_FILE_PROPERTY = "logback.configurationFile"
 private const val SPRING_BOOT_LOGBACK_CONFIG_LOCATION_PROPERTY = "logging.config"
+private const val LOGBACK_CONFIGURATION_FILE_PROPERTY = "logback.configurationFile"
 
 /**
  * Spring Boot entry point
@@ -32,150 +28,122 @@ private const val SPRING_BOOT_LOGBACK_CONFIG_LOCATION_PROPERTY = "logging.config
 internal class CdrClientApplication
 
 @Suppress("SpreadOperator")
-fun main(args: Array<String>) {
+fun main(args: Array<String>): Unit = runCatching {
     initConfig()
+    upgradeConfig()
     runApplication<CdrClientApplication>(*args)
-}
+}.fold(
+    onSuccess = {},
+    onFailure = { t ->
+        logMsg { "application exit due to unhandled exception: '$t'" }
+        throw t
+    }
+)
 
+/**
+ * Creates application and logging configuration files for new installations (or if either configuration
+ * has been deleted, for whatever reason).
+ */
 private fun initConfig() {
-    initLogbackConfig()
-    initSpringBootConfig()
+    System.getProperty(SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY)
+        ?.takeIf { it.isNotBlank() }
+        ?.let { configLocation: String -> Path.of(configLocation) }
+        ?.let { configPath -> ConfigInit.initSpringBootConfig(configPath) }
+        ?.let { absoluteConfigPath ->
+            // update property with the absolute path to the SpringBoot configuration file
+            System.setProperty(SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY, absoluteConfigPath.toString())
+            Unit
+        }
+        ?: logMsg {
+            "No SpringBoot configuration file location configured via system property '$SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY', " +
+                    "skipping initialization of SpringBoot configuration"
+        }
+
+    System.getProperty(SPRING_BOOT_LOGBACK_CONFIG_LOCATION_PROPERTY)
+        ?.takeIf { it.isNotBlank() }
+        ?.let { configLocation: String -> Path.of(configLocation) }
+        ?.let { configPath -> ConfigInit.initLogbackConfig(configPath) }
+        ?.let { absoluteConfigPath ->
+            // update property with the absolute path to the logback configuration file
+            System.setProperty(SPRING_BOOT_LOGBACK_CONFIG_LOCATION_PROPERTY, absoluteConfigPath.toString())
+            // overwrite the logback-ui config that is set because of the conveyor.conf settings
+            System.setProperty(LOGBACK_CONFIGURATION_FILE_PROPERTY, absoluteConfigPath.toString())
+            Unit
+        }
+        ?: logMsg {
+            "No Logback configuration file location configured via system property '$SPRING_BOOT_LOGBACK_CONFIG_LOCATION_PROPERTY', " +
+                    "skipping initialization of Logback configuration"
+        }
 }
 
 /**
- * Checks whether the system property `spring.config.additional-location` is set and if so, checks if
- * the file exists. If it does not exist, the default customer configuration file is copied to that
- * location. If the property value is a relative path, then it is resolved against the user's home
- * directory. This should only be the case under macOS where configuration, logs, etc., should go into
- * `$HOME/Library/...`. The system property is then updated with the absolute path to the customer
- * configuration file.
+ * Upgrades existing configuration files to the latest version, adding new configuration items with
+ * default values where necessary.
  */
-private fun initSpringBootConfig() =
-    // create a default customer configuration file if we are told to do so and if it does not exist yet
+private fun upgradeConfig() =
     System.getProperty(SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY)
-        ?.let { additionalConfigLocation: String ->
-            val additionalConfigPath = Path.of(additionalConfigLocation)
-            if (!additionalConfigPath.isAbsolute) {
-                // should only be relevant for macOS where configuration, logs, etc., should go into `$HOME/Library/...`
-                // on other platforms use absolute paths!
-                val userHome: Path = requireNotNull(System.getProperty("user.home")) {
-                    "User home directory is not set but is required to resolve the relative configuration path '$additionalConfigLocation'"
-                }.run(Path::of)
-                userHome.resolve(Path.of(additionalConfigLocation))
-            } else {
-                additionalConfigPath
+        ?.let { configLocation: String -> configLocation.takeIf { it.isNotBlank() } }
+        ?.let { configLocation: String -> Path.of(configLocation) }
+        ?.let { configLocation: Path -> configLocation.takeIf { it.isRegularFile() } }
+        ?.let { configLocation: Path ->
+            when (val upgradeResult = ConfigUpgrade.applyPendingUpgradeSteps(configLocation)) {
+                is UpgradeResult.AlreadyAtLatestVersion -> logMsg { "Configuration was already at the latest version, no upgrade was performed" }
+                is UpgradeResult.Success -> logMsg { "Configuration successfully upgraded to version '${upgradeResult.version}'" }
+                is UpgradeResult.Failure -> {
+                    logMsg { "Failed to upgrade to version '${upgradeResult.version}'" }
+                    error("Failed to upgrade to version '${upgradeResult.version}'") // causes the JVM to exit
+                }
             }
         }
-        ?.absolute()
-        ?.let { customerConfigFile: Path ->
-            if (customerConfigFile.exists()) {
-                // TODO: add check if the file is writable as soon as the Debian package installs the service with its own run-user
-                //  and changes the ownership of the configuration files to that user
-                check(customerConfigFile.isRegularFile() && customerConfigFile.isReadable()) {
-                    "The customer configuration file path '$customerConfigFile' exists but does not point to a readable regular file."
-                }
-                println("customer application config file '$customerConfigFile' exists, skipping creation of default configuration file")
-            } else {
-                println("config file '$customerConfigFile' does not exist, creating default customer configuration file")
-                val pwd: Path = ProcessHandle.current().info().command().get().let { cdrServiceCmd: String ->
-                    Path.of(cdrServiceCmd).parent.absolute()
-                }
-                val defaultCustomerConfigFile: List<Path> = escalatingFind(DEFAULT_CUSTOMER_CONFIG_FILE, pwd)
-                check(defaultCustomerConfigFile.size == 1) {
-                    "Expected exactly one default customer configuration file with name '$DEFAULT_CUSTOMER_CONFIG_FILE', but found " +
-                            "'${defaultCustomerConfigFile.size}' files: '$defaultCustomerConfigFile'; search started in '$pwd'"
-                }
-                println("found customer configuration template at: '${defaultCustomerConfigFile.first()}'")
-                defaultCustomerConfigFile
-                    .first()
-                    .readText()
-                    .also { defaultConfigContents: String ->
-                        customerConfigFile.createParentDirectories()
-                        customerConfigFile.writeText(defaultConfigContents)
-                    }
-                println("default customer configuration file created at")
-            }
-            customerConfigFile
-        }
-        ?.let { customerConfigFile: Path ->
-            // update property with the absolute path to the customer configuration file
-            System.setProperty(SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY, customerConfigFile.toString())
+        ?: logMsg {
+            "No SpringBoot configuration file location configured via system property '$SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY' " +
+                    "or no file exists at configured location, skipping upgrade of SpringBoot configuration"
         }
 
-/**
- * Checks whether the system property `logging.config` is set and if so, checks if the file exists.
- * If it does not exist, a default logback configuration file is created at that location. If the
- * property value is a relative path, then it is resolved against the user's home directory. This
- * should only be the case under macOS where configuration, logs, etc., should go into
- * `$HOME/Library/...`.The system property is then updated with the absolute path to the customer
- * configuration file.
- */
-@Suppress("NestedBlockDepth", "LongMethod")
-private fun initLogbackConfig() =
-    System.getProperty(SPRING_BOOT_LOGBACK_CONFIG_LOCATION_PROPERTY)
-        ?.let { logbackConfigLocation: String ->
-            val logbackConfigPath = Path.of(logbackConfigLocation)
-            if (!logbackConfigPath.isAbsolute) {
-                // should only be relevant for macOS where configuration, logs, etc., should go into `$HOME/Library/Application Support/...`
-                // on other platforms use absolute paths!
-                val userHome: Path = requireNotNull(System.getProperty("user.home")) {
-                    "User home directory is not set but is required to resolve the relative logback configuration path '$logbackConfigLocation'"
-                }.run(Path::of)
-                userHome.resolve(Path.of(logbackConfigLocation))
+private val tmpLogFile: Path? by lazy {
+    val fileOrDirStr: String? = System.getProperty(SPRING_BOOT_ADDITIONAL_CONFIG_FILE_LOCATION_PROPERTY)
+        .takeUnless { it.isNullOrBlank() }
+        ?: System.getProperty("java.io.tmpdir")
+            // ms windows services running as `SYSTEM` don't know where the tmp dir is, nor do they have a user.home
+            .takeUnless { it.isNullOrBlank() }
+        ?: "C:\\ProgramData"
+            // we assume that all Linux/macOS scenarios yield a value for `java.io.tmpdir`
+            .takeIf { Platform.isWindows() }
+
+    fileOrDirStr
+        ?.let { pathStr: String ->
+            val fileOrDir = Path.of(pathStr)
+            if (fileOrDir.isDirectory()) {
+                fileOrDir.resolve("cdr-service-init.log")
             } else {
-                logbackConfigPath
+                fileOrDir.resolveSibling("cdr-service-init.log")
+            }.also { file: Path ->
+                if (!file.exists(
+                        LinkOption.NOFOLLOW_LINKS
+                    )
+                ) file.createFile()
             }
         }
-        ?.absolute()
-        ?.let { logbackConfigFile: Path ->
-            if (logbackConfigFile.exists()) {
-                check(logbackConfigFile.isRegularFile() && logbackConfigFile.isReadable()) {
-                    "The logback configuration file path '$logbackConfigFile' exists but does not point to a readable regular file."
-                }
-                println("logback config file '$logbackConfigFile' exists, skipping creation of default configuration file")
-            } else {
-                println("logback config file '$logbackConfigFile' does not exist, creating default logback configuration file")
-                val pwd: Path = ProcessHandle.current().info().command().get().let { cdrServiceCmd: String ->
-                    Path.of(cdrServiceCmd).parent.absolute()
-                }
-                val defaultLogbackConfigFile: List<Path> = escalatingFind(SERVICE_LOGBACK_FILE, pwd)
-                check(defaultLogbackConfigFile.size == 1) {
-                    "Expected exactly one default logback configuration file with name '$SERVICE_LOGBACK_FILE', but found " +
-                            "'${defaultLogbackConfigFile.size}' files: '$defaultLogbackConfigFile'; search started in '$pwd'"
-                }
-                println("found logback configuration template at: '${defaultLogbackConfigFile.first()}'")
-                val logDir: Path =
-                    requireNotNull(System.getProperty("cdr.client.log.directory")) {
-                        "log directory system property 'cdr.client.log.directory' is not set"
-                    }
-                        .run(Path::of)
-                        .run {
-                            if (isAbsolute) {
-                                this
-                            } else {
-                                // should only be relevant for macOS where configuration, logs, etc., should go into `$HOME/Library/Application Support/...`
-                                // on other platforms use absolute paths!
-                                requireNotNull(System.getProperty("user.home")) {
-                                    "User home directory is not set but is required to resolve the relative log directory '$this'"
-                                }.run(Path::of).resolve(this).absolute()
-                            }
-                        }
-                logDir.createDirectories()
-                defaultLogbackConfigFile
-                    .first()
-                    .readText()
-                    .replace("@@LOG_DIR@@", logDir.toString())
-                    .also { defaultConfigContents: String ->
-                        logbackConfigFile.createParentDirectories()
-                        logbackConfigFile.writeText(defaultConfigContents)
-                    }
-                println("default logback configuration file created at: '$logbackConfigFile'")
-            }
-            logbackConfigFile
+}
+
+fun logMsg(msgProducer: () -> String) {
+    fun printlnF(msg: String) {
+        if (tmpLogFile != null) {
+            tmpLogFile!!.appendText(
+                charset = Charsets.UTF_8,
+                text = "$msg\n",
+            )
+        } else {
+            // fallback in case we failed to create the logfile
+            println(msg)
         }
-        ?.let { logbackConfigFile: Path ->
-            // update property with the absolute path to the logback configuration file
-            System.setProperty(SPRING_BOOT_LOGBACK_CONFIG_LOCATION_PROPERTY, logbackConfigFile.toString())
-            // overwrite the logback-ui config that is set because of the conveyor.conf settings
-            System.setProperty(LOGBACK_CONFIGURATION_FILE_PROPERTY, logbackConfigFile.toString())
-        }
+    }
+
+    when {
+        // on windows we run as a service; stdout is not captured anywhere, so have to write to a file
+        // to be able to identify issues during initialization
+        Platform.isWindows() -> printlnF(msgProducer())
+        // every other OS (we care about) is sane
+        else -> println(msgProducer())
+    }
+}

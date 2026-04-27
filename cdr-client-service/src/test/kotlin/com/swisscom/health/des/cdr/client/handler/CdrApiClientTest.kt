@@ -10,6 +10,7 @@ import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.AZURE_TRACE_ID_HEADER
 import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.CDR_PROCESSING_MODE_HEADER
 import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.CONNECTOR_ID_HEADER
+import com.swisscom.health.des.cdr.client.handler.CdrApiClient.Companion.PULL_RESULT_ID_HEADER
 import io.mockk.every
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer

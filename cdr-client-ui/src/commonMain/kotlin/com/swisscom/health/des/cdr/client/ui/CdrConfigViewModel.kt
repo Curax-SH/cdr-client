@@ -37,11 +37,16 @@ private typealias SuccessHandler<T> = suspend (T) -> Unit
  * @param clientServiceStatus The current status of the CDR Client service.
  * @param clientServiceConfig The CDR Client service configuration.
  * @param errorMessageKey An optional error message key to display in a Snackbar.
+ * @param fileMonitoringStatus The file monitoring status (error files and old temp files).
  */
 internal data class CdrConfigUiState(
     val clientServiceStatus: DTOs.StatusResponse.StatusCode = DTOs.StatusResponse.StatusCode.UNKNOWN,
     val clientServiceConfig: DTOs.CdrClientConfig = DTOs.CdrClientConfig.EMPTY,
     val errorMessageKey: StringResourceWithArgs? = null, // should be an ArrayDeque<String>, but I have not figured out how to turn that into an observable state yet
+    val fileMonitoringStatus: DTOs.FileMonitoringStatusResponse = DTOs.FileMonitoringStatusResponse(
+        errorFileCount = 0,
+        oldTempFileCount = 0
+    ),
 )
 
 /**
@@ -564,11 +569,12 @@ internal class CdrConfigViewModel(
     fun asyncClientServiceRestart(): Job = asyncClientServiceShutdown()
 
     /**
-     * Queries the CDR Client service status.
+     * Queries the CDR Client service status and file monitoring status.
      */
     fun queryClientServiceStatus(retryStrategy: CdrClientApiClient.RetryStrategy): Deferred<DTOs.StatusResponse.StatusCode> =
         viewModelScope.async {
-            cdrClientApiClient.getClientServiceStatus(retryStrategy).let { status: DTOs.StatusResponse.StatusCode ->
+            cdrClientApiClient.getClientServiceStatus(retryStrategy).let { statusResponse: DTOs.StatusResponse ->
+                val status = statusResponse.statusCode
                 if (status.isOnlineCategory && _uiState.value.clientServiceStatus.isOfflineCategory) {
                     // if we went from an offline state to an online state, we need to refresh the client service configuration
                     queryClientServiceConfiguration()
@@ -585,7 +591,8 @@ internal class CdrConfigViewModel(
                 }
                 _uiState.update {
                     it.copy(
-                        clientServiceStatus = status
+                        clientServiceStatus = status,
+                        fileMonitoringStatus = statusResponse.fileMonitoringStatus
                     )
                 }
                 status
@@ -679,7 +686,7 @@ internal class CdrConfigViewModel(
     }
 
     internal fun reportError(messageKey: StringResource, vararg formatArgs: Any) {
-        logger.trace { "reportError: '$messageKey', args: '$formatArgs'" }
+        logger.trace { "reportError: '$messageKey', args: '${formatArgs.contentToString()}'" }
         _uiState.update {
             it.copy(
                 errorMessageKey = StringResourceWithArgs(

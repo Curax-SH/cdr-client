@@ -43,10 +43,6 @@ internal class ProxyBeansConfig {
     fun proxy(config: CdrClientConfig, configValidationService: ConfigValidationService): Proxy? {
         val proxyConfig = config.proxyConfig
         return when {
-            proxyConfig == null -> {
-                logger.debug { "No proxy configuration found in CdrClientConfig" }
-                null
-            }
             proxyConfig.url.value.isBlank() -> {
                 logger.debug { "Proxy URL is blank in configuration" }
                 null
@@ -101,10 +97,6 @@ internal class ProxyBeansConfig {
     @ConditionalOnExpression($$"'${client.proxy-config.url:}' != '' and '${client.proxy-config.username:}' != '' and '${client.proxy-config.password:}' != ''")
     fun proxyCredentials(config: CdrClientConfig): ProxyCredentials? =
         when {
-            config.proxyConfig == null -> {
-                logger.debug { "No proxy configuration present, therefore no proxy credentials" }
-                null
-            }
             config.proxyConfig.username.value.isBlank() || config.proxyConfig.password.value.isBlank() -> {
                 logger.debug { "No proxy credentials configured" }
                 null

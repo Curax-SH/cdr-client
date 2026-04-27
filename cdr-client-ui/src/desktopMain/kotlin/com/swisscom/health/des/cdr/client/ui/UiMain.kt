@@ -63,7 +63,7 @@ private const val LOGBACK_CONFIGURATION_FILE_PROPERTY = "logback.configurationFi
   `initialLogbackConfig()`.
   Because the logback configuration file might not exist yet and/or its final location
   may not be known until `initLogbackConfig()` has completed, you cannot use
-  kotlin-logging in this kotlin file, as it would initialize Logback before the external
+  kotlin-logging in this kotlin file. It would initialize Logback before the external
   configuration file may be set.
 
   In short: DO NOT DEFINE A LOGGER LIKE THIS:

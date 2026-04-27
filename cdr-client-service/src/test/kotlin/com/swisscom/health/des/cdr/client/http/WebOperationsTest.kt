@@ -17,6 +17,10 @@ import com.swisscom.health.des.cdr.client.config.Host
 import com.swisscom.health.des.cdr.client.config.IdpCredentials
 import com.swisscom.health.des.cdr.client.config.LastCredentialRenewalTime
 import com.swisscom.health.des.cdr.client.config.OAuth2AuthNService
+import com.swisscom.health.des.cdr.client.config.ProxyConfig
+import com.swisscom.health.des.cdr.client.config.ProxyPassword
+import com.swisscom.health.des.cdr.client.config.ProxyUrl
+import com.swisscom.health.des.cdr.client.config.ProxyUsername
 import com.swisscom.health.des.cdr.client.config.RenewCredential
 import com.swisscom.health.des.cdr.client.config.Scope
 import com.swisscom.health.des.cdr.client.config.TempDownloadDir
@@ -24,6 +28,7 @@ import com.swisscom.health.des.cdr.client.config.TenantId
 import com.swisscom.health.des.cdr.client.config.toDto
 import com.swisscom.health.des.cdr.client.handler.ConfigValidationService
 import com.swisscom.health.des.cdr.client.handler.ConfigurationWriter
+import com.swisscom.health.des.cdr.client.handler.FileMonitoringService
 import com.swisscom.health.des.cdr.client.handler.ShutdownService
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_AUTHENTICATED
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.AUTHN_COMMUNICATION_ERROR
@@ -37,6 +42,7 @@ import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.CONFIG
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.FILE_SYNCHRONIZATION_INDICATOR_NAME
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.FILE_SYNCHRONIZATION_STATUS_DISABLED
 import com.swisscom.health.des.cdr.client.http.HealthIndicators.Companion.FILE_SYNCHRONIZATION_STATUS_ENABLED
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -83,6 +89,9 @@ internal class WebOperationsTest {
     private lateinit var retryIOExceptionsAndServerErrors: RetryTemplate
 
     @MockK
+    private lateinit var fileMonitoringService: FileMonitoringService
+
+    @MockK
     private lateinit var authNService: OAuth2AuthNService
 
     private var objectMapper: ObjectMapper = ObjectMapper()
@@ -95,6 +104,14 @@ internal class WebOperationsTest {
     fun setUp() {
         webOperationsAdvice = WebOperationsAdvice()
 
+        every { fileMonitoringService.monitoringStatus } returns mockk {
+            every { value } returns DTOs.FileMonitoringStatusResponse(
+                errorFileCount = 0,
+                oldTempFileCount = 0
+            )
+        }
+        coEvery { fileMonitoringService.checkFileStatus() } returns Unit
+
         webOperations = WebOperations(
             shutdownService = shutdownService,
             configWriter = configWriter,
@@ -103,7 +120,8 @@ internal class WebOperationsTest {
             config = DEFAULT_CDR_CONFIG,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = retryIOExceptionsAndServerErrors,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
     }
 
@@ -256,7 +274,8 @@ internal class WebOperationsTest {
             config = DEFAULT_CDR_CONFIG,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = realRetryTemplate,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
 
         val idpCredentials = DTOs.CdrClientConfig.IdpCredentials(
@@ -295,7 +314,8 @@ internal class WebOperationsTest {
             config = DEFAULT_CDR_CONFIG,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = realRetryTemplate,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
 
         val idpCredentials = DTOs.CdrClientConfig.IdpCredentials(
@@ -319,6 +339,106 @@ internal class WebOperationsTest {
     }
 
     @Test
+    fun `test validateCredentials - masked secret is substituted with real secret from config`() = runTest {
+        val realRetryTemplate = RetryTemplate.builder().maxAttempts(1).build()
+        val webOperationsWithRealRetry = WebOperations(
+            shutdownService = shutdownService,
+            configWriter = configWriter,
+            healthEndpoint = healthEndpoint,
+            objectMapper = objectMapper,
+            config = DEFAULT_CDR_CONFIG,
+            configValidationService = configValidationService,
+            retryIOExceptionsAndServerErrors = realRetryTemplate,
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
+        )
+
+        val idpCredentialsWithMaskedSecret = DTOs.CdrClientConfig.IdpCredentials(
+            tenantId = DEFAULT_CDR_CONFIG.idpCredentials.tenantId.id,
+            clientId = DEFAULT_CDR_CONFIG.idpCredentials.clientId.id,
+            clientSecret = ClientSecret.MASKED_SECRET.value,
+            scope = DEFAULT_CDR_CONFIG.idpCredentials.scope.scope,
+            renewCredential = true,
+            maxCredentialAge = Duration.ofDays(1L),
+            lastCredentialRenewalTime = Instant.now()
+        )
+
+        val capturedCredentials = slot<IdpCredentials>()
+        every { authNService.getNewAccessToken(capture(capturedCredentials), any(), false) } returns OAuth2AuthNService.AuthNResponse.Success(mockk())
+
+        webOperationsWithRealRetry.validateCredentials(idpCredentialsWithMaskedSecret)
+
+        assertEquals(DEFAULT_CDR_CONFIG.idpCredentials.clientSecret.value, capturedCredentials.captured.clientSecret.value)
+    }
+
+    @Test
+    fun `test validateCredentials - any all-asterisk string is treated as masked and replaced with config secret`() = runTest {
+        val realRetryTemplate = RetryTemplate.builder().maxAttempts(1).build()
+        val webOperationsWithRealRetry = WebOperations(
+            shutdownService = shutdownService,
+            configWriter = configWriter,
+            healthEndpoint = healthEndpoint,
+            objectMapper = objectMapper,
+            config = DEFAULT_CDR_CONFIG,
+            configValidationService = configValidationService,
+            retryIOExceptionsAndServerErrors = realRetryTemplate,
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
+        )
+
+        val idpCredentialsWithAnyMaskedSecret = DTOs.CdrClientConfig.IdpCredentials(
+            tenantId = DEFAULT_CDR_CONFIG.idpCredentials.tenantId.id,
+            clientId = DEFAULT_CDR_CONFIG.idpCredentials.clientId.id,
+            clientSecret = "**", // only 2 asterisks — still all-asterisk
+            scope = DEFAULT_CDR_CONFIG.idpCredentials.scope.scope,
+            renewCredential = true,
+            maxCredentialAge = Duration.ofDays(1L),
+            lastCredentialRenewalTime = Instant.now()
+        )
+
+        val capturedCredentials = slot<IdpCredentials>()
+        every { authNService.getNewAccessToken(capture(capturedCredentials), any(), false) } returns OAuth2AuthNService.AuthNResponse.Success(mockk())
+
+        webOperationsWithRealRetry.validateCredentials(idpCredentialsWithAnyMaskedSecret)
+
+        assertEquals(DEFAULT_CDR_CONFIG.idpCredentials.clientSecret.value, capturedCredentials.captured.clientSecret.value)
+    }
+
+    @Test
+    fun `test validateCredentials - real secret is passed through to authService unchanged`() = runTest {
+        val realRetryTemplate = RetryTemplate.builder().maxAttempts(1).build()
+        val webOperationsWithRealRetry = WebOperations(
+            shutdownService = shutdownService,
+            configWriter = configWriter,
+            healthEndpoint = healthEndpoint,
+            objectMapper = objectMapper,
+            config = DEFAULT_CDR_CONFIG,
+            configValidationService = configValidationService,
+            retryIOExceptionsAndServerErrors = realRetryTemplate,
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
+        )
+
+        val newSecret = "brand-new-secret-entered-by-user"
+        val idpCredentialsWithRealSecret = DTOs.CdrClientConfig.IdpCredentials(
+            tenantId = DEFAULT_CDR_CONFIG.idpCredentials.tenantId.id,
+            clientId = DEFAULT_CDR_CONFIG.idpCredentials.clientId.id,
+            clientSecret = newSecret,
+            scope = DEFAULT_CDR_CONFIG.idpCredentials.scope.scope,
+            renewCredential = true,
+            maxCredentialAge = Duration.ofDays(1L),
+            lastCredentialRenewalTime = Instant.now()
+        )
+
+        val capturedCredentials = slot<IdpCredentials>()
+        every { authNService.getNewAccessToken(capture(capturedCredentials), any(), false) } returns OAuth2AuthNService.AuthNResponse.Success(mockk())
+
+        webOperationsWithRealRetry.validateCredentials(idpCredentialsWithRealSecret)
+
+        assertEquals(newSecret, capturedCredentials.captured.clientSecret.value)
+    }
+
+    @Test
     fun `test validateCredentials - verifies correct endpoint correction logic`() = runTest {
         // Create a real RetryTemplate instead of mocking it
         val realRetryTemplate = RetryTemplate.builder()
@@ -339,7 +459,8 @@ internal class WebOperationsTest {
             config = configWithOriginalEndpoint,
             configValidationService = configValidationService,
             retryIOExceptionsAndServerErrors = realRetryTemplate,
-            authService = authNService
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
         )
 
         val idpCredentials = DTOs.CdrClientConfig.IdpCredentials(
@@ -422,7 +543,13 @@ internal class WebOperationsTest {
             fileBusyTestInterval = Duration.ofSeconds(1L),
             fileBusyTestTimeout = Duration.ofSeconds(1L),
             fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-            proxyConfig = null,
+            proxyConfig = ProxyConfig(
+                url = ProxyUrl(""),
+                username = ProxyUsername(""),
+                password = ProxyPassword(""),
+            ),
+            oldFileThreshold = Duration.ofHours(2L),
+            fileSystemCheckInterval = Duration.ofMinutes(5L),
         )
     }
 }

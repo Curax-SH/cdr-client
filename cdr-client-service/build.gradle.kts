@@ -15,9 +15,6 @@ plugins {
     application
     kotlin("jvm").version(libs.versions.kotlin.lang)
     kotlin("plugin.spring").version(libs.versions.kotlin.lang)
-    // https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#features.kotlin.configuration-properties
-    // KAPT is end of life, but KSP is not supported yet: https://github.com/spring-projects/spring-boot/issues/28046
-    kotlin("kapt").version(libs.versions.kotlin.lang)
     `maven-publish`
     idea
 }
@@ -70,11 +67,7 @@ dependencies {
     implementation(libs.jackson.dataformat.yaml)
     implementation(libs.jackson.module.kotlin)
     implementation(projects.cdrClientCommon)
-
-    // Note: At the time of writing the configuration processor seems to be broken; might be related to the upgrade to Kotlin 2.x
-    // Enable annotation processing via menu File | Settings | Build, Execution, Deployment
-    // | Compiler | Annotation Processors | Enable annotation processing
-    kapt("org.springframework.boot:spring-boot-configuration-processor")
+    implementation(libs.jna)
 
     testImplementation(libs.jacocoCore)
     testImplementation(libs.spring.boot.starter.test)
@@ -93,12 +86,6 @@ configurations.configureEach {
     exclude(group = "junit", module = "junit")
 }
 
-kapt {
-    correctErrorTypes = true
-    mapDiagnosticLocations = true
-    includeCompileClasspath = false
-}
-
 springBoot {
     buildInfo {
         excludes.set(setOf("artifact", "group", "time"))
@@ -106,8 +93,14 @@ springBoot {
 }
 
 kotlin {
-    jvmToolchain(libs.versions.jdk.get().toInt())
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.get().toInt()))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
+    }
+
     compilerOptions {
+        progressiveMode = true
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(libs.versions.jdk.get())
         freeCompilerArgs = listOf("-Xjsr305=strict")
     }
 }
@@ -135,7 +128,7 @@ val jacocoTestCoverageVerification = tasks.named<JacocoCoverageVerification>("ja
                 }
             }))
             limit {
-                minimum = "0.65".toBigDecimal()
+                minimum = "0.70".toBigDecimal()
             }
         }
     }

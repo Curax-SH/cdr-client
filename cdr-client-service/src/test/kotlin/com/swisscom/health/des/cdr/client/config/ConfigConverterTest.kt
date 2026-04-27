@@ -71,10 +71,12 @@ class ConfigConverterTest {
         fileBusyTestInterval = Duration.ofSeconds(1L),
         fileBusyTestTimeout = Duration.ofSeconds(1L),
         fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig()
+        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig(),
+        oldFileThreshold = Duration.ofHours(2L),
+        fileSystemCheckInterval = Duration.ofMinutes(5L),
     )
 
-    private val configAllAbsolutePaths: CdrClientConfig = CdrClientConfig(
+    private val sameConfigButAbsolutePaths: CdrClientConfig = CdrClientConfig(
         fileSynchronizationEnabled = FileSynchronization.ENABLED,
         customer = Customer(
             mutableListOf(
@@ -92,7 +94,8 @@ class ConfigConverterTest {
                         DocumentType.CREDIT to Connector.DocTypeFolders(targetFolder = RELATIVE_PATH),
                     ),
                 )
-            )),
+            )
+        ),
         cdrApi = CdrApi(
             scheme = "http",
             host = Host("localhost"),
@@ -130,14 +133,21 @@ class ConfigConverterTest {
         fileBusyTestInterval = Duration.ofSeconds(1L),
         fileBusyTestTimeout = Duration.ofSeconds(1L),
         fileBusyTestStrategy = FileBusyTestStrategyProperty(CdrClientConfig.FileBusyTestStrategy.NEVER_BUSY),
-        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig()
+        proxyConfig = DTOs.CdrClientConfig.ProxyConfig.EMPTY.toCdrClientConfig(),
+        oldFileThreshold = Duration.ofHours(2L),
+        fileSystemCheckInterval = Duration.ofMinutes(5L),
     )
-
 
     @Test
     fun `there and back again - make sure no information is lost in translation`() {
         val configRoundTrip = configAllRelativePaths.toDto().toCdrClientConfig()
-        assertEquals(configAllAbsolutePaths, configRoundTrip)
+        sameConfigButAbsolutePaths.copy(
+            idpCredentials = sameConfigButAbsolutePaths.idpCredentials.copy(
+                clientSecret = ClientSecret.MASKED_SECRET
+            )
+        ).also { sameConfigButAbsolutePathsMaskedSecret ->
+            assertEquals(sameConfigButAbsolutePathsMaskedSecret, configRoundTrip)
+        }
     }
 
     private companion object {
