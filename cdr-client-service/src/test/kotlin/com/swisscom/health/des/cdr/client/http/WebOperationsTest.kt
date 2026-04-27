@@ -339,6 +339,106 @@ internal class WebOperationsTest {
     }
 
     @Test
+    fun `test validateCredentials - masked secret is substituted with real secret from config`() = runTest {
+        val realRetryTemplate = RetryTemplate.builder().maxAttempts(1).build()
+        val webOperationsWithRealRetry = WebOperations(
+            shutdownService = shutdownService,
+            configWriter = configWriter,
+            healthEndpoint = healthEndpoint,
+            objectMapper = objectMapper,
+            config = DEFAULT_CDR_CONFIG,
+            configValidationService = configValidationService,
+            retryIOExceptionsAndServerErrors = realRetryTemplate,
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
+        )
+
+        val idpCredentialsWithMaskedSecret = DTOs.CdrClientConfig.IdpCredentials(
+            tenantId = DEFAULT_CDR_CONFIG.idpCredentials.tenantId.id,
+            clientId = DEFAULT_CDR_CONFIG.idpCredentials.clientId.id,
+            clientSecret = ClientSecret.MASKED_SECRET.value,
+            scope = DEFAULT_CDR_CONFIG.idpCredentials.scope.scope,
+            renewCredential = true,
+            maxCredentialAge = Duration.ofDays(1L),
+            lastCredentialRenewalTime = Instant.now()
+        )
+
+        val capturedCredentials = slot<IdpCredentials>()
+        every { authNService.getNewAccessToken(capture(capturedCredentials), any(), false) } returns OAuth2AuthNService.AuthNResponse.Success(mockk())
+
+        webOperationsWithRealRetry.validateCredentials(idpCredentialsWithMaskedSecret)
+
+        assertEquals(DEFAULT_CDR_CONFIG.idpCredentials.clientSecret.value, capturedCredentials.captured.clientSecret.value)
+    }
+
+    @Test
+    fun `test validateCredentials - any all-asterisk string is treated as masked and replaced with config secret`() = runTest {
+        val realRetryTemplate = RetryTemplate.builder().maxAttempts(1).build()
+        val webOperationsWithRealRetry = WebOperations(
+            shutdownService = shutdownService,
+            configWriter = configWriter,
+            healthEndpoint = healthEndpoint,
+            objectMapper = objectMapper,
+            config = DEFAULT_CDR_CONFIG,
+            configValidationService = configValidationService,
+            retryIOExceptionsAndServerErrors = realRetryTemplate,
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
+        )
+
+        val idpCredentialsWithAnyMaskedSecret = DTOs.CdrClientConfig.IdpCredentials(
+            tenantId = DEFAULT_CDR_CONFIG.idpCredentials.tenantId.id,
+            clientId = DEFAULT_CDR_CONFIG.idpCredentials.clientId.id,
+            clientSecret = "**", // only 2 asterisks — still all-asterisk
+            scope = DEFAULT_CDR_CONFIG.idpCredentials.scope.scope,
+            renewCredential = true,
+            maxCredentialAge = Duration.ofDays(1L),
+            lastCredentialRenewalTime = Instant.now()
+        )
+
+        val capturedCredentials = slot<IdpCredentials>()
+        every { authNService.getNewAccessToken(capture(capturedCredentials), any(), false) } returns OAuth2AuthNService.AuthNResponse.Success(mockk())
+
+        webOperationsWithRealRetry.validateCredentials(idpCredentialsWithAnyMaskedSecret)
+
+        assertEquals(DEFAULT_CDR_CONFIG.idpCredentials.clientSecret.value, capturedCredentials.captured.clientSecret.value)
+    }
+
+    @Test
+    fun `test validateCredentials - real secret is passed through to authService unchanged`() = runTest {
+        val realRetryTemplate = RetryTemplate.builder().maxAttempts(1).build()
+        val webOperationsWithRealRetry = WebOperations(
+            shutdownService = shutdownService,
+            configWriter = configWriter,
+            healthEndpoint = healthEndpoint,
+            objectMapper = objectMapper,
+            config = DEFAULT_CDR_CONFIG,
+            configValidationService = configValidationService,
+            retryIOExceptionsAndServerErrors = realRetryTemplate,
+            authService = authNService,
+            fileMonitoringService = fileMonitoringService
+        )
+
+        val newSecret = "brand-new-secret-entered-by-user"
+        val idpCredentialsWithRealSecret = DTOs.CdrClientConfig.IdpCredentials(
+            tenantId = DEFAULT_CDR_CONFIG.idpCredentials.tenantId.id,
+            clientId = DEFAULT_CDR_CONFIG.idpCredentials.clientId.id,
+            clientSecret = newSecret,
+            scope = DEFAULT_CDR_CONFIG.idpCredentials.scope.scope,
+            renewCredential = true,
+            maxCredentialAge = Duration.ofDays(1L),
+            lastCredentialRenewalTime = Instant.now()
+        )
+
+        val capturedCredentials = slot<IdpCredentials>()
+        every { authNService.getNewAccessToken(capture(capturedCredentials), any(), false) } returns OAuth2AuthNService.AuthNResponse.Success(mockk())
+
+        webOperationsWithRealRetry.validateCredentials(idpCredentialsWithRealSecret)
+
+        assertEquals(newSecret, capturedCredentials.captured.clientSecret.value)
+    }
+
+    @Test
     fun `test validateCredentials - verifies correct endpoint correction logic`() = runTest {
         // Create a real RetryTemplate instead of mocking it
         val realRetryTemplate = RetryTemplate.builder()
