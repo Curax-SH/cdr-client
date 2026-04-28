@@ -11,6 +11,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import kotlin.io.path.appendText
 import kotlin.io.path.createFile
+import kotlin.io.path.createParentDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
@@ -112,16 +113,21 @@ private val tmpLogFile: Path? by lazy {
 
     fileOrDirStr
         ?.let { pathStr: String ->
-            val fileOrDir = Path.of(pathStr)
-            if (fileOrDir.isDirectory()) {
-                fileOrDir.resolve("cdr-service-init.log")
-            } else {
-                fileOrDir.resolveSibling("cdr-service-init.log")
-            }.also { file: Path ->
-                if (!file.exists(
-                        LinkOption.NOFOLLOW_LINKS
-                    )
-                ) file.createFile()
+            runCatching {
+                val fileOrDir = Path.of(pathStr)
+                if (fileOrDir.isDirectory()) {
+                    fileOrDir.resolve("cdr-service-init.log")
+                } else {
+                    fileOrDir.resolveSibling("cdr-service-init.log")
+                }.also { file: Path ->
+                    if (!file.exists(LinkOption.NOFOLLOW_LINKS)) {
+                        file.createParentDirectories()
+                        file.createFile()
+                    }
+                }
+            }.getOrElse { t ->
+                System.err.println("WARNING: could not create init log file, falling back to stdout: ${t.message}")
+                null
             }
         }
 }

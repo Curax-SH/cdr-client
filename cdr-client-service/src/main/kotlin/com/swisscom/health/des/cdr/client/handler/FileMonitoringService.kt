@@ -94,7 +94,7 @@ internal class FileMonitoringService(
             val count = if (tempFolder.exists() && tempFolder.isDirectory()) {
                 val threshold = Instant.now().minus(config.oldFileThreshold)
 
-                Files.walk(tempFolder)
+                Files.list(tempFolder)
                     .asSequence()
                     .filter { it.isRegularFile() && it.extension.lowercase() == TEMP_FILE_EXTENSION }
                     .count { file ->

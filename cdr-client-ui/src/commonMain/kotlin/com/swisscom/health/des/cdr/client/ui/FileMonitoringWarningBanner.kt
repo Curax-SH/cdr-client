@@ -2,6 +2,10 @@ package com.swisscom.health.des.cdr.client.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,34 +22,34 @@ internal fun FileMonitoringWarningBanner(
     modifier: Modifier = Modifier,
     fileMonitoringStatus: DTOs.FileMonitoringStatusResponse
 ) {
-    androidx.compose.material3.Card(
+    Card(
         modifier = modifier,
-        colors = androidx.compose.material3.CardDefaults.cardColors(
+        colors = CardDefaults.cardColors(
             containerColor = Color(0xFFFFF3CD),
         ),
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
         ) {
-            androidx.compose.material3.Text(
+            Text(
                 text = "⚠️ ${stringResource(Res.string.label_file_monitoring_warnings)}",
-                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium,
                 color = Color(0xFF856404)
             )
 
             if (fileMonitoringStatus.errorFileCount > 0) {
-                androidx.compose.material3.Text(
+                Text(
                     text = "• ${stringResource(Res.string.label_file_monitoring_error_files, fileMonitoringStatus.errorFileCount)}",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF856404),
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
 
             if (fileMonitoringStatus.oldTempFileCount > 0) {
-                androidx.compose.material3.Text(
+                Text(
                     text = "• ${stringResource(Res.string.label_file_monitoring_old_temp_files, fileMonitoringStatus.oldTempFileCount)}",
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF856404),
                     modifier = Modifier.padding(top = 4.dp)
                 )
