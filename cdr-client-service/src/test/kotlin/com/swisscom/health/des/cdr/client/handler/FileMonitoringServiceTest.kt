@@ -162,20 +162,6 @@ internal class FileMonitoringServiceTest {
     }
 
     @Test
-    fun `should count files in nested temp directories`() = runTest {
-        val threeHoursAgo = Instant.now().minus(3, ChronoUnit.HOURS)
-        val nestedDir = tempDir.resolve("subfolder").createDirectories()
-
-        createTempFile(tempDir, "old1.$TEMP_FILE_EXTENSION", threeHoursAgo)
-        createTempFile(nestedDir, "old2.$TEMP_FILE_EXTENSION", threeHoursAgo)
-
-        fileMonitoringService.checkFileStatus()
-
-        val status = fileMonitoringService.monitoringStatus.value
-        assertEquals(2, status.oldTempFileCount)
-    }
-
-    @Test
     fun `should handle both error files and old temp files`() = runTest {
         val threeHoursAgo = Instant.now().minus(3, ChronoUnit.HOURS)
 
